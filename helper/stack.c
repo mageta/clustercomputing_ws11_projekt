@@ -34,6 +34,11 @@ void stack_destroy(stack_t *stack)
 	free(stack);
 }
 
+void stack_clear(stack_t *stack)
+{
+	stack->memory->elements = 0;
+}
+
 int stack_push(stack_t *stack, void * value)
 {
 	return vector_add_value(stack->memory, value);

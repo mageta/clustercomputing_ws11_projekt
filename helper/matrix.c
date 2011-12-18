@@ -73,6 +73,7 @@ size_t matrix_size_byte(matrix_t *matrix)
 
 void matrix_init(matrix_t *matrix, int c)
 {
+	/* TODO: is not correct, since element_size could be bigger than 1 */
 	memset(matrix->matrix, c, matrix_size_byte(matrix));
 }
 

@@ -35,6 +35,11 @@ void queue_destroy(queue_t *queue)
 	free(queue);
 }
 
+void queue_clear(queue_t *queue)
+{
+	queue->memory->elements = 0;
+}
+
 int queue_enqueue(queue_t *queue, void * value)
 {
 	return vector_add_value(queue->memory, value);

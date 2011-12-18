@@ -1,4 +1,4 @@
-TARGETS = connectivity
+TARGETS = connectivity pixelpattern
 
 CC	= /usr/bin/gcc
 CCFLAGS	= -Wall --std=c99 -ggdb -pthread
@@ -10,6 +10,9 @@ LIBS	=
 all: $(TARGETS) $(DIRS)
 
 connectivity: connectivity.o helper
+	$(CC) $(CCFLAGS) $(DIRS:%=-L./%) $(DIRS:%=-I./%) -o $@ $< $(LDFLAGS)
+
+pixelpattern: pixelpattern.o helper
 	$(CC) $(CCFLAGS) $(DIRS:%=-L./%) $(DIRS:%=-I./%) -o $@ $< $(LDFLAGS)
 
 $(DIRS): force_look
