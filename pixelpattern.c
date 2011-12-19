@@ -16,7 +16,7 @@
 int generate_pixel_pattern(unsigned long int height, unsigned long int width,
 		double filling, int failcount, int bulginess, int size, int dist);
 
-char * usage() {
+static char * usage() {
 	static char text[256];
 	int written;
 	char *textp = text;
@@ -53,9 +53,9 @@ int
 main(int argc, char ** argv)
 {
 	long int width, height;
-	double filling = 0.2;
+	double filling = 0.6;
 	int failcount = 500,
-	    bulginess = 3,
+	    bulginess = 2,
 	    size = 5,
 	    dist = 1;
 
