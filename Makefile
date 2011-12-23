@@ -1,4 +1,4 @@
-TARGETS = pixelpattern find_components
+TARGETS = pixelpattern find_components clustering
 
 CC	= /usr/local/bin/mpicc
 # CCFLAGS	= -Wall --std=c99 -ggdb -pthread -fms-extensions
@@ -14,6 +14,9 @@ pixelpattern: pixelpattern.o components.o helper
 
 find_components: find_components.o components.o border_compare.o helper
 	$(CC) $(CCFLAGS) $(DIRS:%=-L./%) $(DIRS:%=-I./%) -o $@ $< components.o border_compare.o $(LDFLAGS)
+
+clustering: clustering.o components.o helper
+	$(CC) $(CCFLAGS) $(DIRS:%=-L./%) $(DIRS:%=-I./%) -o $@ $< components.o $(LDFLAGS)
 
 $(DIRS): force_look
 	@cd $@; $(MAKE) all
