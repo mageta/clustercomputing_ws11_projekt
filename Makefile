@@ -1,7 +1,9 @@
-TARGETS = connectivity pixelpattern
+TARGETS = connectivity pixelpattern clustering
 
 CC	= /usr/bin/gcc
+MPICC = /usr/local/bin/mpicc
 CCFLAGS	= -Wall --std=c99 -ggdb -pthread
+MPICCFLAGS = --std=c99
 # CCFLAGS	= -Wall -pthread -O2 -pipe -fomit-frame-pointer
 LDFLAGS	= -lm -lhelper
 DIRS	= helper
@@ -14,6 +16,9 @@ connectivity: connectivity.o helper
 
 pixelpattern: pixelpattern.o helper
 	$(CC) $(CCFLAGS) $(DIRS:%=-L./%) $(DIRS:%=-I./%) -o $@ $< $(LDFLAGS)
+
+clustering: clustering.o helper
+	$(MPICC) $(MPICCFLAGS) $(DIRS:%=-L./%) $(DIRS:%=-I./%) -o $@
 
 $(DIRS): force_look
 	@cd $@; $(MAKE) all
