@@ -1,4 +1,5 @@
-TARGETS = helper vector_test matrix_test stack_test
+TARGETS = helper
+TESTS	= vector_test matrix_test stack_test list_test
 
 CC	= /usr/bin/gcc
 CCFLAGS	= -Wall --std=c99 -ggdb -fPIC -pthread
@@ -7,15 +8,16 @@ LDFLAGS	= -lm
 DIRS	=
 LIBS	=
 
-all: $(DIRS) $(TARGETS)
+all: $(DIRS) $(TARGETS) $(TESTS)
 
-helper: vector.o matrix.o stack.o queue.o
+helper: vector.o matrix.o stack.o queue.o list.o
 	ar -cvr libhelper.a $^
-
-tests: helper vector_test matrix_test stack_test
 
 vector_test: vector_test.o helper
 	$(CC) $(CCFLAGS) $(DIRS:%=-L./%) $(DIRS:%=-I./%) -o $@ $< vector.o $(LDFLAGS)
+
+list_test: list_test.o helper
+	$(CC) $(CCFLAGS) $(DIRS:%=-L./%) $(DIRS:%=-I./%) -o $@ $< list.o $(LDFLAGS)
 
 matrix_test: matrix_test.o helper
 	$(CC) $(CCFLAGS) $(DIRS:%=-L./%) $(DIRS:%=-I./%) -o $@ $< matrix.o $(LDFLAGS)
@@ -30,7 +32,7 @@ $(DIRS): force_look
 	$(CC) $(CCFLAGS) -c $<
 
 clean:
-	-rm -f *~ *.o *.a $(TARGETS)
+	-rm -f *~ *.o *.a $(TARGETS) $(TESTS)
 	@for d in $(DIRS); do (cd $$d; $(MAKE) clean ); done
 
 distclean: clean

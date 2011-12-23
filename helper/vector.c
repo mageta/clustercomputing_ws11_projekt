@@ -4,13 +4,13 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <asm/errno.h>
+#include <errno.h>
 
-int vector_create(vector_t ** v, size_t len, size_t element_size)
+int vector_create(vector_type ** v, size_t len, size_t element_size)
 {
-	vector_t * vec;
+	vector_type * vec;
 
-	vec = (vector_t *) malloc(sizeof(*vec));
+	vec = (vector_type *) malloc(sizeof(*vec));
 	if(!vec)
 		return ENOMEM;
 	memset(vec, 0, sizeof(*vec));
@@ -35,31 +35,31 @@ err_free:
 	return ENOMEM;
 }
 
-void vector_destroy(vector_t * vec)
+void vector_destroy(vector_type * vec)
 {
 	free(vec->values);
 	free(vec);
 }
 
-void * vector_get_value(vector_t *vec, unsigned int i)
+void * vector_get_value(vector_type *vec, unsigned int i)
 {
 	return (void *) (((char *) vec->values) + (i * vec->element_size));
 }
 
-void vector_copy_value(vector_t *vec, unsigned int i, void * value)
+void vector_copy_value(vector_type *vec, unsigned int i, void * value)
 {
 	memcpy(value,
 		((char *) vec->values) + (i * vec->element_size),
 		vec->element_size);
 }
 
-void vector_set_value(vector_t *vec, unsigned int i, void * value)
+void vector_set_value(vector_type *vec, unsigned int i, void * value)
 {
 	memcpy(((char *) vec->values) + (vec->elements * vec->element_size),
 			value, vec->element_size);
 }
 
-int vector_add_value(vector_t *vec, void * value)
+int vector_add_value(vector_type *vec, void * value)
 {
 	char * new_values;
 	size_t old_len = vec->len,
@@ -87,7 +87,7 @@ int vector_add_value(vector_t *vec, void * value)
 	return 0;
 }
 
-int vector_del_value(vector_t *vec, unsigned int i)
+int vector_del_value(vector_type *vec, unsigned int i)
 {
 	char * values = vec->values;
 

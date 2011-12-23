@@ -6,15 +6,12 @@
 #include <time.h>
 #include <wchar.h>
 
-#include <asm/errno.h>
-
-#include "vector.h"
 #include "matrix.h"
 #include "stack.h"
-#include "queue.h"
 
 int generate_pixel_pattern(unsigned long int height, unsigned long int width,
-		double filling, int failcount, int bulginess, int size, int dist);
+		double filling, int failcount, int bulginess, int size,
+		int dist);
 
 static char * usage() {
 	static char text[256];
@@ -53,10 +50,10 @@ int
 main(int argc, char ** argv)
 {
 	long int width, height;
-	double filling = 0.6;
+	double filling = 0.3;
 	int failcount = 500,
-	    bulginess = 2,
-	    size = 5,
+	    bulginess = 9,
+	    size = 10,
 	    dist = 1;
 
 	if(argc < 3) {
@@ -76,7 +73,8 @@ main(int argc, char ** argv)
 		return -1;
 	}
 
-	return generate_pixel_pattern(height, width, filling, failcount, bulginess, size, dist);
+	return generate_pixel_pattern(height, width, filling, failcount,
+			bulginess, size, dist);
 }
 
 static int debug_hock() {
@@ -88,8 +86,9 @@ struct node {
 };
 
 static int
-distance_test(matrix_t *matrix, matrix_t *components, struct node *node, unsigned int dist,
-		unsigned short int value, long long target_component, int count)
+distance_test(matrix_type *matrix, matrix_type *components,
+		struct node *node, unsigned int dist, unsigned short int value,
+		long long target_component, int count)
 {
 	int i, j, k = 0;
 	int cur_i, cur_j;
@@ -119,7 +118,8 @@ distance_test(matrix_t *matrix, matrix_t *components, struct node *node, unsigne
 			component = *((unsigned int *) matrix_get(components,
 						cur_i, cur_j));
 
-			if((component != target_component) && (cur_value == value))
+			if((component != target_component) &&
+					(cur_value == value))
 				return 1;
 
 			if(cur_value == value) {
@@ -134,7 +134,7 @@ distance_test(matrix_t *matrix, matrix_t *components, struct node *node, unsigne
 }
 
 static int
-update_component(matrix_t *components, matrix_t *pattern_sizes,
+update_component(matrix_type *components, matrix_type *pattern_sizes,
 		struct node *target_node, unsigned int target_component,
 		unsigned long long int new_size)
 {
@@ -143,7 +143,7 @@ update_component(matrix_t *components, matrix_t *pattern_sizes,
 	unsigned int component, base_component;
 	unsigned long long int size;
 
-	stack_t *comp_neighbours;
+	stack_type *comp_neighbours;
 
 	stack_create(&comp_neighbours, 0, sizeof(node));
 	stack_push(comp_neighbours, target_node);
@@ -206,8 +206,8 @@ update_component(matrix_t *components, matrix_t *pattern_sizes,
 	return 0;
 }
 
-static int change_pattern_value(matrix_t *matrix, matrix_t *pattern_sizes,
-		matrix_t *components, struct node *target_node,
+static int change_pattern_value(matrix_type *matrix, matrix_type *pattern_sizes,
+		matrix_type *components, struct node *target_node,
 		unsigned short int target_value)
 {
 	int i, j, first_find = 1;
@@ -217,7 +217,7 @@ static int change_pattern_value(matrix_t *matrix, matrix_t *pattern_sizes,
 	static unsigned int max_component = 1;
 
 	struct node node, current_node;
-	stack_t *same_value;
+	stack_type *same_value;
 
 	stack_create(&same_value, 0, sizeof(*target_node));
 
@@ -322,7 +322,8 @@ static int change_pattern_value(matrix_t *matrix, matrix_t *pattern_sizes,
 }
 
 int generate_pixel_pattern(unsigned long int height, unsigned long int width,
-		double filling, int failcount, int bulginess, int size, int dist)
+		double filling, int failcount, int bulginess, int size,
+		int dist)
 {
 	int i, j;
 	int prob;
@@ -330,11 +331,11 @@ int generate_pixel_pattern(unsigned long int height, unsigned long int width,
 	unsigned short int value, color;
 	unsigned long long int pattern_size, filled, failed;
 	unsigned int component, max_component = 0;
-	matrix_t *matrix; /* contains unsigned short int */
-	matrix_t *colors; /* contains unsigned short int */
-	matrix_t *pattern_sizes; /* contains unsigned long long int */
-	matrix_t *components; /* contains unsigned int */
-	stack_t *to_be_visited;
+	matrix_type *matrix; /* contains unsigned short int */
+	matrix_type *colors; /* contains unsigned short int */
+	matrix_type *pattern_sizes; /* contains unsigned long long int */
+	matrix_type *components; /* contains unsigned int */
+	stack_type *to_be_visited;
 
 	struct node node, current_node;
 
@@ -365,7 +366,8 @@ int generate_pixel_pattern(unsigned long int height, unsigned long int width,
 		node.j = j;
 		value = 1;
 
-		if(distance_test(matrix, components, &node, dist, value, -1, 0)) {
+		if(distance_test(matrix, components, &node, dist, value, -1,
+					0)) {
 			failed++;
 			if (failed >= failcount)
 				break;
@@ -387,11 +389,13 @@ int generate_pixel_pattern(unsigned long int height, unsigned long int width,
 			stack_pop(to_be_visited, &current_node);
 
 			color = 2;
-			matrix_set(colors, current_node.i, current_node.j, &color);
+			matrix_set(colors, current_node.i, current_node.j,
+					&color);
 
 			for (i = -1; i < 2; i++) {
 				/* invalid nods */
-				if(!matrix_index_valid(matrix, current_node.i + i,
+				if(!matrix_index_valid(matrix,
+							current_node.i + i,
 							current_node.j))
 					continue;
 
@@ -402,8 +406,8 @@ int generate_pixel_pattern(unsigned long int height, unsigned long int width,
 
 					/* invalid nodes */
 					if(!matrix_index_valid(matrix,
-								current_node.i + i,
-								current_node.j + j))
+							current_node.i + i,
+							current_node.j + j))
 						continue;
 
 					debug_hock();
@@ -411,14 +415,22 @@ int generate_pixel_pattern(unsigned long int height, unsigned long int width,
 					node.i = current_node.i + i;
 					node.j = current_node.j + j;
 
-					color = *((unsigned short int *) matrix_get(colors, node.i, node.j));
+					color = *((unsigned short int *)
+							matrix_get(colors,
+								node.i,
+								node.j));
 					if(color)
 						continue;
 
 					color = 1;
-					matrix_set(colors, node.i, node.j, &color);
+					matrix_set(colors, node.i, node.j,
+							&color);
 
-					if(distance_test(matrix, components, &node, dist, value, component, bulginess))
+					if(distance_test(matrix, components,
+								&node, dist,
+								value,
+								component,
+								bulginess))
 						continue;
 
 					prob = 100 - (pattern_size * size);
@@ -427,16 +439,25 @@ int generate_pixel_pattern(unsigned long int height, unsigned long int width,
 
 					if(dice <= prob) {
 						value = 1;
-						change_pattern_value(matrix, pattern_sizes, components,
+						change_pattern_value(matrix,
+								pattern_sizes,
+								components,
 								&node, value);
 
-						pattern_size = *((unsigned long long int *) matrix_get(
-									pattern_sizes, node.i, node.j));
+						pattern_size =
+						   *((unsigned long long int *)
+							matrix_get(
+								pattern_sizes,
+								node.i,
+								node.j));
 
-						stack_push(to_be_visited, &node);
+						stack_push(to_be_visited,
+								&node);
 						filled++;
 
-						if(((double) filled / (height * width)) >= filling)
+						if(((double) filled /
+							(height * width)) >=
+								filling)
 							goto fill_out;
 					}
 				}
@@ -461,7 +482,8 @@ fill_out:
 	for (i = 0; i < pattern_sizes->m; i++) {
 		for (j = 0; j < (pattern_sizes->n - 1); j++) {
 			fprintf(stdout, "%3lld, ", *((unsigned long long int *)
-						matrix_get(pattern_sizes, i, j)));
+						matrix_get(pattern_sizes, i,
+							j)));
 		}
 		fprintf(stdout, "%3lld\n", *((unsigned long long int *)
 					matrix_get(pattern_sizes, i, j)));
@@ -477,7 +499,8 @@ fill_out:
 					matrix_get(matrix, i, j)));
 	}
 
-	fprintf(stdout, "filled: %lld; max: %ld; filling: %f\n\n", filled, height * width, ((double) filled) / (height * width));
+	fprintf(stdout, "filled: %lld; max: %ld; filling: %f\n\n", filled,
+			height * width, ((double) filled) / (height * width));
 
 	for (i = 0; i < matrix->m; i++) {
 		unsigned short int k;

@@ -3,15 +3,18 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <asm/errno.h>
+#include <errno.h>
 
 int
-matrix_create(matrix_t **mat, size_t m, size_t n, size_t element_size)
+matrix_create(matrix_type **mat, size_t m, size_t n, size_t element_size)
 {
 	int rc = 0;
-	matrix_t *new_m;
+	matrix_type *new_m;
 
-	new_m = (matrix_t *) malloc(sizeof(*new_m));
+	if(!m || !n || !mat || !element_size)
+		return EINVAL;
+
+	new_m = (matrix_type *) malloc(sizeof(*new_m));
 	if(!new_m)
 		return ENOMEM;
 	memset(new_m, 0, sizeof(*new_m));
@@ -35,13 +38,13 @@ err_free:
 }
 
 void
-matrix_destroy(matrix_t *m)
+matrix_destroy(matrix_type *m)
 {
 	free(m->matrix);
 	free(m);
 }
 
-int matrix_set(matrix_t *matrix, size_t i, size_t j, void * value)
+int matrix_set(matrix_type *matrix, size_t i, size_t j, void * value)
 {
 	if((i >= matrix->m) || (j >= matrix->n))
 		return EINVAL;
@@ -54,34 +57,34 @@ int matrix_set(matrix_t *matrix, size_t i, size_t j, void * value)
 	return 0;
 }
 
-void * matrix_get(matrix_t *matrix, size_t i, size_t j)
+void * matrix_get(matrix_type *matrix, size_t i, size_t j)
 {
 	return (void *) (((char *) matrix->matrix) +
 			((i * matrix->n * matrix->element_size) +
 			 (j * matrix->element_size)));
 }
 
-size_t matrix_size(matrix_t *matrix)
+size_t matrix_size(matrix_type *matrix)
 {
 	return matrix->m * matrix->n;
 }
 
-size_t matrix_size_byte(matrix_t *matrix)
+size_t matrix_size_byte(matrix_type *matrix)
 {
 	return matrix_size(matrix) * matrix->element_size;
 }
 
-void matrix_init(matrix_t *matrix, int c)
+void matrix_init(matrix_type *matrix, int c)
 {
 	/* TODO: is not correct, since element_size could be bigger than 1 */
 	memset(matrix->matrix, c, matrix_size_byte(matrix));
 }
 
 int
-matrix_copy(matrix_t **new, matrix_t *old)
+matrix_copy(matrix_type **new, matrix_type *old)
 {
 	int rc;
-	matrix_t *new_m;
+	matrix_type *new_m;
 
 	rc = matrix_create(&new_m, old->m, old->n, old->element_size);
 	if(rc)
@@ -94,7 +97,7 @@ matrix_copy(matrix_t **new, matrix_t *old)
 	return 0;
 }
 
-int matrix_index_valid(matrix_t *matrix, int i, int j)
+int matrix_index_valid(matrix_type *matrix, int i, int j)
 {
 	return (i >= 0) && (i < matrix->m) && (j >= 0) && (j < matrix->n);
 }

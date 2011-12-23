@@ -5,12 +5,9 @@
 #include <string.h>
 #include <errno.h>
 #include <limits.h>
+#include <ctype.h>
 
-#include <asm/errno.h>
-
-#include "vector.h"
 #include "matrix.h"
-#include "stack.h"
 #include "queue.h"
 
 struct node {
@@ -18,7 +15,7 @@ struct node {
 };
 
 static void
-visit_node(matrix_t *colors, queue_t *to_be_visited, struct node *node)
+visit_node(matrix_type *colors, queue_type *to_be_visited, struct node *node)
 {
 	unsigned short int color;
 
@@ -39,15 +36,15 @@ visit_node(matrix_t *colors, queue_t *to_be_visited, struct node *node)
 }
 
 static int
-complete_component(matrix_t *mat, matrix_t *colors, matrix_t *components,
-		queue_t *to_be_visited, struct node *search_node,
-		unsigned short int cur_component)
+complete_component(matrix_type *mat, matrix_type *colors, 
+		matrix_type *components, queue_type *to_be_visited, 
+		struct node *search_node, unsigned short int cur_component)
 {
 	int i, j;
 	struct node node, current_node;
 	unsigned short int value, component;
 
-	queue_t *black_neighbours;
+	queue_type *black_neighbours;
 
 	queue_create(&black_neighbours, 0, sizeof(*search_node));
 	queue_enqueue(black_neighbours, search_node);
@@ -101,14 +98,14 @@ complete_component(matrix_t *mat, matrix_t *colors, matrix_t *components,
 }
 
 int
-find_connections(matrix_t *mat)
+find_connections(matrix_type *mat)
 {
 	int i, j;
 	unsigned short int color;
 	unsigned short int max_component = 0, cur_component;
 	unsigned short int value;
-	matrix_t *colors = 0, *components = 0;
-	queue_t *to_be_visited = 0;
+	matrix_type *colors = 0, *components = 0;
+	queue_type *to_be_visited = 0;
 
 	struct node node, current_node;
 
@@ -234,17 +231,17 @@ static char * usage() {
 	return text;
 }
 
-static int read_input_file(matrix_t **m, char *file_name)
+static int read_input_file(matrix_type **m, char *file_name)
 {
-	int i,j;
+	int i, j, rc;
 	unsigned int height, width;
 	long int read_value;
-	unsigned int line_length;
+	size_t line_length;
 	unsigned short int write_value;
 	char *line = NULL, *endp, *strp;
 	FILE *input = NULL;
-	matrix_t *matrix;
-	queue_t *lines;
+	matrix_type *matrix;
+	queue_type *lines;
 
 	if(queue_create(&lines, 0, sizeof(line))) {
 		fprintf(stderr, "Not enougth memory.\n");
@@ -272,30 +269,26 @@ static int read_input_file(matrix_t **m, char *file_name)
 	input = NULL;
 
 	line = *((char **) queue_head(lines));
-	strp = line;
 	width = 0;
 
-	strp = strtok(line, ", \n");
-	while(strp) {
-		read_value = strtol(strp, &endp, 10);
+	while(*line) {
+		if((*line == ',') && (*(line+1) == ' '))
+			width++;
 
-		if((errno == ERANGE) || (strp == endp)) {
-			fprintf(stderr, "file '%s' contains invalid input.\n",
-					file_name);
-			goto err_free_queue;
-		}
+		if(!width && isdigit(*line))
+			width++;
 
-		width++;
-
-		strp = strtok(NULL, ", \n");
+		line++;
 	}
 
 	height = queue_size(lines);
 
 	fprintf(stdout, "height: %d; width: %d\n", height, width);
 
-	if(matrix_create(&matrix, height, width, sizeof(unsigned short int))) {
-		fprintf(stderr, "Not enougth memory.\n");
+	rc = matrix_create(&matrix, height, width, sizeof(unsigned short int));
+	if(rc) {
+		fprintf(stderr, "Could not create a matrix.. %s\n", 
+				strerror(rc));
 		goto err_free_queue;
 	}
 	matrix_init(matrix, 0);
@@ -312,7 +305,8 @@ static int read_input_file(matrix_t **m, char *file_name)
 			read_value = strtol(strp, &endp, 10);
 
 			if((errno == ERANGE) || (strp == endp)) {
-				fprintf(stderr, "file '%s' contains invalid input.\n",
+				fprintf(stderr, "file '%s' contains invalid"
+						" input.\n",
 						file_name);
 				free(line);
 				goto err_free_queue;
@@ -348,7 +342,7 @@ int
 main(int argc, char ** argv)
 {
 	int i,j, rc;
-	matrix_t *matrix;
+	matrix_type *matrix;
 
 	if(argc < 2) {
 		fprintf(stderr, "To few arguments given.\n\n%s\n",

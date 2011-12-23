@@ -7,7 +7,7 @@
 int
 main(int argc, char ** argv)
 {
-	vector_t *vec;
+	vector_type *vec;
 
 	int test_data[] = {
 		63, 38, 61, 64, 24, 02, 46, 66, 55, 34, 25, 40, 45, 89, 29,
