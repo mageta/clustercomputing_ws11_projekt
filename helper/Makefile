@@ -1,5 +1,5 @@
 TARGETS = helper
-TESTS	= vector_test matrix_test stack_test list_test
+TESTS	= vector_test matrix_test stack_test list_test queue_test
 
 CC	= /usr/bin/gcc
 CCFLAGS	= -Wall --std=c99 -ggdb -fPIC -pthread
@@ -24,6 +24,9 @@ matrix_test: matrix_test.o helper
 
 stack_test: stack_test.o helper
 	$(CC) $(CCFLAGS) $(DIRS:%=-L./%) $(DIRS:%=-I./%) -o $@ $< stack.o vector.o $(LDFLAGS)
+
+queue_test: queue_test.o helper
+	$(CC) $(CCFLAGS) $(DIRS:%=-L./%) $(DIRS:%=-I./%) -o $@ $< queue.o list.o $(LDFLAGS)
 
 $(DIRS): force_look
 	@cd $@; $(MAKE) all

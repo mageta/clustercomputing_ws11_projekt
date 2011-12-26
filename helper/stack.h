@@ -6,17 +6,17 @@
 #include "vector.h"
 
 struct stack {
-	vector_type * memory;
+	vector_type * svector;
 };
 
 typedef struct stack stack_type;
 
-int stack_create(stack_type **stack, size_t len, size_t element_size);
+int stack_create(stack_type **stack, size_t element_size);
 void stack_destroy(stack_type *stack);
 void stack_clear(stack_type *stack);
 
 int stack_push(stack_type *stack, void * value);
-void stack_pop(stack_type *stack, void * value);
+int stack_pop(stack_type *stack, void * value);
 void * stack_top(stack_type *stack);
 size_t stack_size(stack_type *stack);
 

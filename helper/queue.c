@@ -1,4 +1,4 @@
-#include "vector.h"
+#include "list.h"
 #include "queue.h"
 
 #include <stdio.h>
@@ -7,17 +7,20 @@
 
 #include <errno.h>
 
-int queue_create(queue_type **queue, size_t len, size_t element_size)
+int queue_create(queue_type **queue, size_t element_size)
 {
 	int rc;
 	queue_type *new_q;
+
+	if(!queue || !element_size)
+		return EINVAL;
 
 	new_q = (queue_type *) malloc(sizeof(*new_q));
 	if(!new_q)
 		return ENOMEM;
 	memset(new_q, 0, sizeof(*new_q));
 
-	rc = vector_create(&new_q->memory, len, element_size);
+	rc = list_create(&new_q->qlist, element_size);
 	if(rc)
 		goto err_free;
 
@@ -31,37 +34,67 @@ err_free:
 
 void queue_destroy(queue_type *queue)
 {
-	vector_destroy(queue->memory);
+	if(!queue)
+		return;
+
+	list_destroy(queue->qlist);
 	free(queue);
 }
 
 void queue_clear(queue_type *queue)
 {
-	queue->memory->elements = 0;
+	int rc;
+
+	if(!queue)
+		return;
+
+	do {
+		rc = list_remove_head(queue->qlist);
+	} while(!rc);
 }
 
 int queue_enqueue(queue_type *queue, void * value)
 {
-	return vector_add_value(queue->memory, value);
+	if(!queue || !value)
+		return EINVAL;
+
+	return list_append(queue->qlist, value);
 }
 
-void queue_dequeue(queue_type *queue, void * value)
+int queue_dequeue(queue_type *queue, void * value)
 {
-	vector_copy_value(queue->memory, 0, value);
-	vector_del_value(queue->memory, 0);
+	int rc;
+
+	if(!queue || !value)
+		return EINVAL;
+
+	rc = list_get_head(queue->qlist, value);
+	if(rc)
+		return rc;
+
+	return list_remove_head(queue->qlist);
 }
 
 void * queue_head(queue_type *queue)
 {
-	return vector_get_value(queue->memory, 0);
+	if(!queue)
+		return NULL;
+
+	return list_head(queue->qlist);
 }
 
 void * queue_tail(queue_type *queue)
 {
-	return vector_get_value(queue->memory, queue->memory->elements - 1);
+	if(!queue)
+		return NULL;
+
+	return list_tail(queue->qlist);
 }
 
 size_t queue_size(queue_type *queue)
 {
-	return queue->memory->elements;
+	if(!queue || !queue->qlist)
+		return 0;
+
+	return queue->qlist->elements;
 }

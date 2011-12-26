@@ -145,7 +145,7 @@ update_component(matrix_type *components, matrix_type *pattern_sizes,
 
 	stack_type *comp_neighbours;
 
-	stack_create(&comp_neighbours, 0, sizeof(node));
+	stack_create(&comp_neighbours, sizeof(node));
 	stack_push(comp_neighbours, target_node);
 
 	base_component = *((unsigned int *) matrix_get(components,
@@ -219,7 +219,7 @@ static int change_pattern_value(matrix_type *matrix, matrix_type *pattern_sizes,
 	struct node node, current_node;
 	stack_type *same_value;
 
-	stack_create(&same_value, 0, sizeof(*target_node));
+	stack_create(&same_value, sizeof(*target_node));
 
 	matrix_set(matrix, target_node->i, target_node->j, &target_value);
 	matrix_set(pattern_sizes, target_node->i, target_node->j,
@@ -351,7 +351,7 @@ int generate_pixel_pattern(unsigned long int height, unsigned long int width,
 	matrix_create(&pattern_sizes, height, width, sizeof(pattern_size));
 	matrix_init(pattern_sizes, 0);
 
-	stack_create(&to_be_visited, 0, sizeof(node));
+	stack_create(&to_be_visited, sizeof(node));
 
 	srand(time(NULL));
 

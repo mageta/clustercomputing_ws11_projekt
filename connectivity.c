@@ -36,8 +36,8 @@ visit_node(matrix_type *colors, queue_type *to_be_visited, struct node *node)
 }
 
 static int
-complete_component(matrix_type *mat, matrix_type *colors, 
-		matrix_type *components, queue_type *to_be_visited, 
+complete_component(matrix_type *mat, matrix_type *colors,
+		matrix_type *components, queue_type *to_be_visited,
 		struct node *search_node, unsigned short int cur_component)
 {
 	int i, j;
@@ -46,7 +46,7 @@ complete_component(matrix_type *mat, matrix_type *colors,
 
 	queue_type *black_neighbours;
 
-	queue_create(&black_neighbours, 0, sizeof(*search_node));
+	queue_create(&black_neighbours, sizeof(*search_node));
 	queue_enqueue(black_neighbours, search_node);
 
 	while(queue_size(black_neighbours)) {
@@ -121,7 +121,7 @@ find_connections(matrix_type *mat)
 	/* 0 - no component */
 	matrix_init(components, 0);
 
-	queue_create(&to_be_visited, 0, sizeof(current_node));
+	queue_create(&to_be_visited, sizeof(current_node));
 
 	/* initial node to expand */
 	node.i = 0;
@@ -243,7 +243,7 @@ static int read_input_file(matrix_type **m, char *file_name)
 	matrix_type *matrix;
 	queue_type *lines;
 
-	if(queue_create(&lines, 0, sizeof(line))) {
+	if(queue_create(&lines, sizeof(line))) {
 		fprintf(stderr, "Not enougth memory.\n");
 		goto err_out;
 	}
@@ -287,7 +287,7 @@ static int read_input_file(matrix_type **m, char *file_name)
 
 	rc = matrix_create(&matrix, height, width, sizeof(unsigned short int));
 	if(rc) {
-		fprintf(stderr, "Could not create a matrix.. %s\n", 
+		fprintf(stderr, "Could not create a matrix.. %s\n",
 				strerror(rc));
 		goto err_free_queue;
 	}

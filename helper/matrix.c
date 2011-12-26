@@ -40,13 +40,17 @@ err_free:
 void
 matrix_destroy(matrix_type *m)
 {
+	if(!m)
+		return;
+
 	free(m->matrix);
 	free(m);
 }
 
 int matrix_set(matrix_type *matrix, size_t i, size_t j, void * value)
 {
-	if((i >= matrix->m) || (j >= matrix->n))
+	if(!matrix || !matrix->matrix || !value ||
+			(i >= matrix->m) || (j >= matrix->n))
 		return EINVAL;
 
 	memcpy(((char *) matrix->matrix) +
@@ -59,6 +63,9 @@ int matrix_set(matrix_type *matrix, size_t i, size_t j, void * value)
 
 void * matrix_get(matrix_type *matrix, size_t i, size_t j)
 {
+	if(!matrix || !matrix->matrix || (i >= matrix->m) || (j >= matrix->n))
+		return NULL;
+
 	return (void *) (((char *) matrix->matrix) +
 			((i * matrix->n * matrix->element_size) +
 			 (j * matrix->element_size)));
@@ -66,18 +73,50 @@ void * matrix_get(matrix_type *matrix, size_t i, size_t j)
 
 size_t matrix_size(matrix_type *matrix)
 {
+	if(!matrix)
+		return 0;
+
 	return matrix->m * matrix->n;
 }
 
 size_t matrix_size_byte(matrix_type *matrix)
 {
+	if(!matrix)
+		return 0;
+
 	return matrix_size(matrix) * matrix->element_size;
 }
 
-void matrix_init(matrix_type *matrix, int c)
+void matrix_init(matrix_type *matrix, char c)
 {
-	/* TODO: is not correct, since element_size could be bigger than 1 */
-	memset(matrix->matrix, c, matrix_size_byte(matrix));
+	int i, endian;
+	char * element;
+	size_t size;
+
+	if(!matrix || !matrix->matrix)
+		return;
+
+	/* this function is a little nasty */
+
+	size = matrix_size(matrix);
+	element = matrix->matrix;
+
+	endian = 1;
+	if(*((char *) &endian) == 1)
+		endian = 1; /* little endian */
+	else
+		endian = 0; /* big endian */
+
+	if(c == 0)
+		memset(matrix->matrix, c, matrix_size_byte(matrix));
+	else {
+		for(i = 0; i < matrix_size(matrix);
+				i++, element += matrix->element_size) {
+			memset(element, 0, matrix->element_size);
+			*(endian ? element : element + (matrix->element_size - 1))
+				= c;
+		}
+	}
 }
 
 int
@@ -85,6 +124,9 @@ matrix_copy(matrix_type **new, matrix_type *old)
 {
 	int rc;
 	matrix_type *new_m;
+
+	if(!new || !old || !old->matrix)
+		return EINVAL;
 
 	rc = matrix_create(&new_m, old->m, old->n, old->element_size);
 	if(rc)
@@ -99,5 +141,8 @@ matrix_copy(matrix_type **new, matrix_type *old)
 
 int matrix_index_valid(matrix_type *matrix, int i, int j)
 {
+	if(!matrix)
+		return 0;
+
 	return (i >= 0) && (i < matrix->m) && (j >= 0) && (j < matrix->n);
 }
