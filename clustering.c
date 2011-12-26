@@ -6,8 +6,8 @@
 #include <errno.h>
 #include <limits.h>
 
-#include "helper/matrix.h"
-#include "helper/queue.h"
+#include "matrix.h"
+#include "queue.h"
 
 #include <asm/errno.h>
 
@@ -27,12 +27,21 @@ static char * usage() {
 	return text;
 }
 
-static int read_input_file(matrix_type **m, char *file_name)
-{
-	int i,j;
+void printmat(int* matrix) {
+	for(int row = 0; row < M; row++)
+	{
+		for(int col = 0; col < N; col++)
+		{
+			printf("%d ", matrix[N*row+col]);
+		}
+		printf("\n");
+	}
+}
+
+static int read_input_file(matrix_type **m, char *file_name){
+	int i, j, rc;
 	unsigned int height, width;
 	long int read_value;
-	// unsigned int line_length;
 	size_t line_length;
 	unsigned short int write_value;
 	char *line = NULL, *endp, *strp;
@@ -66,30 +75,26 @@ static int read_input_file(matrix_type **m, char *file_name)
 	input = NULL;
 
 	line = *((char **) queue_head(lines));
-	strp = line;
 	width = 0;
 
-	strp = strtok(line, ", \n");
-	while(strp) {
-		read_value = strtol(strp, &endp, 10);
+	while(*line) {
+		if((*line == ',') && (*(line+1) == ' '))
+			width++;
 
-		if((errno == ERANGE) || (strp == endp)) {
-			fprintf(stderr, "file '%s' contains invalid input.\n",
-					file_name);
-			goto err_free_queue;
-		}
+		if(!width && isdigit(*line))
+			width++;
 
-		width++;
-
-		strp = strtok(NULL, ", \n");
+		line++;
 	}
 
 	height = queue_size(lines);
 
 	fprintf(stdout, "height: %d; width: %d\n", height, width);
 
-	if(matrix_create(&matrix, height, width, sizeof(unsigned short int))) {
-		fprintf(stderr, "Not enougth memory.\n");
+	rc = matrix_create(&matrix, height, width, sizeof(unsigned short int));
+	if(rc) {
+		fprintf(stderr, "Could not create a matrix.. %s\n", 
+				strerror(rc));
 		goto err_free_queue;
 	}
 	matrix_init(matrix, 0);
@@ -106,7 +111,8 @@ static int read_input_file(matrix_type **m, char *file_name)
 			read_value = strtol(strp, &endp, 10);
 
 			if((errno == ERANGE) || (strp == endp)) {
-				fprintf(stderr, "file '%s' contains invalid input.\n",
+				fprintf(stderr, "file '%s' contains invalid"
+						" input.\n",
 						file_name);
 				free(line);
 				goto err_free_queue;
@@ -138,15 +144,24 @@ err_out:
 	return -1;
 }
 
-int main(int argc, char** argv)
-{
+//int main(int argc, char** argv)
+int main(int argc, char *argv[]) {
 	int rank;	// rank of the process
 	int p;		// number of process
-	// MPI_Status status;
+	MPI_Status status;
 	MPI_Datatype mpi_matrix_type;
+
+	// some mpi crap
+  	MPI_Init(&argc, &argv);
+  	MPI_Comm_size(MPI_COMM_WORLD, &p);
+  	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+	printf("process %d of %d reports for duty!\n", rank, p);
 
 	int i,j;
 	matrix_type *matrix;
+
+	int* matrix_to_transfer;
+	matrix_to_transfer = (int*)calloc( N*M, sizeof(int));
 
 	// read matrix from file
 	if(read_input_file(&matrix, argv[1])) {
@@ -165,24 +180,39 @@ int main(int argc, char** argv)
 					matrix_get(matrix, i, j)));
 	}
 
-	// some mpi crap
-	if (MPI_Init(&argc,&argv)!=MPI_SUCCESS) {
-        fprintf(stderr, "MPI_Init failed.");
-        return -1;
-    }
-	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-	MPI_Comm_size(MPI_COMM_WORLD, &p);
+	for (i = 0; i < matrix->m; i++) {
+		for (j = 0; j < (matrix->n ); j++) {
+			matrix_to_transfer[N*i+j] = *(((unsigned short int *)matrix_get(matrix, i, j)));
+		}
+		matrix_to_transfer[N*i+j] = *(((unsigned short int *)matrix_get(matrix, i, j)));
+	}
 
 	// the new datatype for the matrix
 	MPI_Type_vector(M, N, N, MPI_INT, &mpi_matrix_type);
 	MPI_Type_commit(&mpi_matrix_type);
 
-	if(p<=1) {
-		printf("you should defitively start that programm with more than 1 processes\n");
+	if(p < 2) {
+		printf("you should definitely start that program with more than 1 processes\n");
 		MPI_Finalize();
 		return 1;
 	}
 
-	return 1;
+	if (rank == 0) { // sender
+		printf("%s\n", "sender is active, sending matrix ...");
+		MPI_Barrier( MPI_COMM_WORLD);
+		MPI_Send(matrix_to_transfer, 1, mpi_matrix_type, 1, 0, MPI_COMM_WORLD);
+	} else {
+		printf("%s%i%s\n", "receiver ", rank , " is active, receiving matrix ...");
+		MPI_Barrier( MPI_COMM_WORLD);
+		MPI_Recv(matrix_to_transfer, 1, mpi_matrix_type, 0, 0, MPI_COMM_WORLD, &status);
+		printmat(matrix_to_transfer);
+		
+	}
+
+	free(matrix_to_transfer);
+	MPI_Type_free(&mpi_matrix_type);
+	MPI_Finalize();
+
+	return 0;
 }
 

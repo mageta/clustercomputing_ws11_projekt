@@ -18,7 +18,7 @@ pixelpattern: pixelpattern.o helper
 	$(CC) $(CCFLAGS) $(DIRS:%=-L./%) $(DIRS:%=-I./%) -o $@ $< $(LDFLAGS)
 
 clustering: clustering.o helper
-	$(MPICC) $(MPICCFLAGS) $(DIRS:%=-L./%) $(DIRS:%=-I./%) -o $@
+	$(MPICC) $(CCFLAGS) $(DIRS:%=-L./%) $(DIRS:%=-I./%) -o $@ $< $(LDFLAGS)
 
 $(DIRS): force_look
 	@cd $@; $(MAKE) all
