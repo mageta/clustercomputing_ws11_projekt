@@ -1,6 +1,6 @@
-TARGETS = connectivity pixelpattern
+TARGETS = connectivity pixelpattern mpi_test
 
-CC	= /usr/bin/gcc
+CC	= /usr/local/bin/mpicc
 CCFLAGS	= -Wall --std=c99 -ggdb -pthread
 # CCFLAGS	= -Wall -pthread -O2 -pipe -fomit-frame-pointer
 LDFLAGS	= -lm -lhelper
@@ -13,6 +13,9 @@ connectivity: connectivity.o helper
 	$(CC) $(CCFLAGS) $(DIRS:%=-L./%) $(DIRS:%=-I./%) -o $@ $< $(LDFLAGS)
 
 pixelpattern: pixelpattern.o helper
+	$(CC) $(CCFLAGS) $(DIRS:%=-L./%) $(DIRS:%=-I./%) -o $@ $< $(LDFLAGS)
+
+mpi_test: mpi_test.o helper
 	$(CC) $(CCFLAGS) $(DIRS:%=-L./%) $(DIRS:%=-I./%) -o $@ $< $(LDFLAGS)
 
 $(DIRS): force_look

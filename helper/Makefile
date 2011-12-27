@@ -1,7 +1,7 @@
 TARGETS = helper
 TESTS	= vector_test matrix_test stack_test list_test queue_test
 
-CC	= /usr/bin/gcc
+CC	= /usr/local/bin/mpicc
 CCFLAGS	= -Wall --std=c99 -ggdb -fPIC -pthread
 # CCFLAGS	= -Wall -pthread -O2 -pipe -fomit-frame-pointer
 LDFLAGS	= -lm
