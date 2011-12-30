@@ -23,6 +23,7 @@ int list_insert_at(list_type * list, unsigned int pos, void * value);
 
 void * list_head(list_type *list);
 void * list_tail(list_type *list);
+void * list_element(list_type *list, unsigned int pos);
 
 int list_get_head(list_type *list, void * value);
 int list_get_tail(list_type *list, void * value);

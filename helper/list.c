@@ -200,6 +200,33 @@ void * list_tail(list_type *list)
 	return list->tail->value;
 }
 
+void * list_element(list_type *list, unsigned int pos)
+{
+	int i;
+	struct list_element *local_node;
+
+	if(!list)
+		return EINVAL;
+
+	if(pos == 0) /* the first */
+		return list_head(list);
+	else if((pos + 1) == list->elements) /* the last */
+		return list_tail(list);
+	else if(pos >= list->elements)
+		return EINVAL;
+
+	local_node = list->head;
+	for(i = 0; (i < pos) && local_node; i++) {
+		local_node = local_node->next;
+	}
+
+	/* it seems like someone manipulated the list */
+	if(!local_node || !local_node->value)
+		return EFAULT;
+
+	return local_node->value;
+}
+
 int list_get_head(list_type *list, void * value)
 {
 	if(!list || !value || !list->head)
@@ -236,7 +263,7 @@ int list_get(list_type *list, unsigned int pos, void * value)
 
 	if(pos == 0) /* before the first */
 		return list_get_head(list, value);
-	else if((pos + 1) == list->elements) /* after the last */
+	else if((pos + 1) == list->elements) /* the last */
 		return list_get_tail(list, value);
 	else if(pos >= list->elements)
 		return EINVAL;
