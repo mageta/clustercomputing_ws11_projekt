@@ -1,9 +1,12 @@
+#define _GNU_SOURCE
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
 #include <errno.h>
 #include <time.h>
+#include <ctype.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -22,6 +25,117 @@
 #define MPI_TAG_COMLIST		1
 
 static MPI_Datatype MPI_component_type;
+
+struct processor_data {
+	int rank;
+	int coords[COMM_DIMS];
+
+	/* contains 'struct component_list' */
+	list_type *component_lists;
+};
+
+static void	register_mpi_component_type	();
+static char *	usage				(int argc, char ** argv);
+static unsigned int	urand			();
+static int	read_input_file			(matrix_type **m,
+						char *file_name);
+static int	mpi_working_function		(MPI_Comm *comm,
+						int proc_count, int *dims,
+						struct processor_data *pdata);
+
+int
+main(int argc, char ** argv)
+{
+	int i,j, rc;
+	matrix_type *matrix;
+
+	if(argc < 2) {
+		fprintf(stderr, "To few arguments given.\n\n%s\n",
+				usage(argc, argv));
+		return -1;
+	}
+
+	if(read_input_file(&matrix, argv[1])) {
+		fprintf(stderr, "\n%s\n", usage(argc, argv));
+		return -1;
+	}
+
+	fprintf(stdout, "test_matrix:\n");
+	for (i = 0; i < matrix->m; i++) {
+		for (j = 0; j < (matrix->n - 1); j++) {
+			fprintf(stdout, "%hd, ", *((unsigned short int *)
+						matrix_get(matrix, i, j)));
+		}
+		fprintf(stdout, "%hd\n", *((unsigned short int *)
+					matrix_get(matrix, i, j)));
+	}
+
+	rc = find_components(matrix);
+
+	matrix_destroy(matrix);
+
+	return rc;
+}
+
+// int main(int argc, char **argv)
+// {
+// 	/*
+// 	 * MPI-Variablen:
+// 	 * rank	- Rang des Prozesses
+// 	 * p	- Anzahl Prozesse
+// 	 */
+// 	int rank;
+// 	int p;
+//
+// 	int rc = 0, i;
+//
+// 	int dims[COMM_DIMS], periods[COMM_DIMS];
+//
+// 	struct processor_data pdata;
+//
+// 	MPI_Comm grid_comm;
+//
+// 	srand(time(NULL));
+//
+// 	MPI_Init(&argc, &argv);
+// 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+// 	MPI_Comm_size(MPI_COMM_WORLD, &p);
+//
+// 	/* define user-datatype */
+//
+// 	register_mpi_component_type();
+//
+// 	/* create topo */
+//
+// 	rc = list_create(&pdata.component_lists, sizeof(struct component_list));
+// 	if(rc) goto err_out;
+//
+// 	for(i = 0; i < COMM_DIMS; i++) {
+// 		dims[i] = 0;
+// 		periods[i] = 0;
+// 	}
+//
+// 	MPI_Dims_create(p, COMM_DIMS, dims);
+//
+// 	MPI_Cart_create(MPI_COMM_WORLD, COMM_DIMS, dims, periods, 1, &grid_comm);
+// 	MPI_Comm_rank(grid_comm, &pdata.rank);
+// 	MPI_Cart_coords(grid_comm, pdata.rank, COMM_DIMS, pdata.coords);
+//
+//
+// 	/* call main working function */
+//
+// 	rc = mpi_working_function(&grid_comm, p, dims, &pdata);
+//
+// 	list_destroy(pdata.component_lists);
+//
+// 	MPI_Type_free(&MPI_component_type);
+//
+// 	MPI_Finalize();
+// 	return rc;
+// err_out:
+// 	MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
+// 	return rc;
+// }
 
 static void register_mpi_component_type()
 {
@@ -56,75 +170,123 @@ static void register_mpi_component_type()
 	MPI_Type_commit(&MPI_component_type);
 }
 
-struct processor_data {
-	int rank;
-	int coords[COMM_DIMS];
-
-	/* contains 'struct component_list' */
-	list_type *component_lists;
-};
-
-int mpi_working_function(MPI_Comm *comm, int proc_count, int *dims,
-		struct processor_data *pdata);
-
-int main(int argc, char **argv)
+static char * usage(int argc, char ** argv)
 {
-	/*
-	 * MPI-Variablen:
-	 * rank	- Rang des Prozesses
-	 * p	- Anzahl Prozesse
-	 */
-	int rank;
-	int p;
+	static char text[256];
+	int written;
+	char *textp = text;
 
-	int rc = 0, i;
+	written = sprintf(textp, "usage: %s <file>", argv[0]);
+	textp += written;
 
-	int dims[COMM_DIMS], periods[COMM_DIMS];
+	return text;
+}
 
-	struct processor_data pdata;
+static int read_input_file(matrix_type **m, char *file_name)
+{
+	int i, j, rc;
+	unsigned int height, width;
+	long int read_value;
+	size_t line_length;
+	unsigned short int write_value;
+	char *line = NULL, *endp, *strp;
+	FILE *input = NULL;
+	matrix_type *matrix;
+	queue_type *lines;
 
-	MPI_Comm grid_comm;
-
-	srand(time(NULL));
-
-	MPI_Init(&argc, &argv);
-	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-	MPI_Comm_size(MPI_COMM_WORLD, &p);
-
-	/* define user-datatype */
-
-	register_mpi_component_type();
-
-	/* create topo */
-
-	rc = list_create(&pdata.component_lists, sizeof(struct component_list));
-	if(rc) goto err_out;
-
-	for(i = 0; i < COMM_DIMS; i++) {
-		dims[i] = 0;
-		periods[i] = 0;
+	if(queue_create(&lines, sizeof(line))) {
+		fprintf(stderr, "Not enougth memory.\n");
+		goto err_out;
 	}
 
-	MPI_Dims_create(p, COMM_DIMS, dims);
+	input = fopen(file_name, "r");
+	if(!input) {
+		fprintf(stderr, "file '%s' could not be found.\n",
+				file_name);
+		goto err_out;
+	}
 
-	MPI_Cart_create(MPI_COMM_WORLD, COMM_DIMS, dims, periods, 1, &grid_comm);
-	MPI_Comm_rank(grid_comm, &pdata.rank);
-	MPI_Cart_coords(grid_comm, pdata.rank, COMM_DIMS, pdata.coords);
+	while (getline(&line, &line_length, input) > 0) {
+		if(queue_enqueue(lines, &line)) {
+			fprintf(stderr, "Not enougth memory.\n");
+			free(line);
+			goto err_free_queue;
+		}
+		line = NULL;
+	}
+	free(line);
 
+	fclose(input);
+	input = NULL;
 
-	/* call main working function */
+	line = *((char **) queue_head(lines));
+	width = 0;
 
-	rc = mpi_working_function(&grid_comm, p, dims, &pdata);
+	while(*line) {
+		if((*line == ',') && (*(line+1) == ' '))
+			width++;
 
-	list_destroy(pdata.component_lists);
+		if(!width && isdigit(*line))
+			width++;
 
-	MPI_Type_free(&MPI_component_type);
+		line++;
+	}
 
-	MPI_Finalize();
-	return rc;
+	height = queue_size(lines);
+
+	fprintf(stdout, "height: %d; width: %d\n", height, width);
+
+	rc = matrix_create(&matrix, height, width, sizeof(unsigned short int));
+	if(rc) {
+		fprintf(stderr, "Could not create a matrix.. %s\n",
+				strerror(rc));
+		goto err_free_queue;
+	}
+	matrix_init(matrix, 0);
+
+	i = 0;
+	while (queue_size(lines)) {
+		queue_dequeue(lines, &line);
+
+		j = 0;
+		strp = line;
+
+		strp = strtok(line, ", \n");
+		while(strp && (j < width) && (i < height)) {
+			read_value = strtol(strp, &endp, 10);
+
+			if((errno == ERANGE) || (strp == endp)) {
+				fprintf(stderr, "file '%s' contains invalid"
+						" input.\n",
+						file_name);
+				free(line);
+				goto err_free_queue;
+			}
+
+			write_value = (read_value ? 1 : 0);
+			matrix_set(matrix, i, j, &write_value);
+			j++;
+
+			strp = strtok(NULL, ", \n");
+		}
+
+		i++;
+		free(line);
+	}
+	queue_destroy(lines);
+
+	*m = matrix;
+	return 0;
+err_free_queue:
+	while(queue_size(lines)) {
+		queue_dequeue(lines, &line);
+		free(line);
+	}
+	queue_destroy(lines);
 err_out:
-	MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
-	return rc;
+	if(input)
+		fclose(input);
+	return -1;
 }
 
 static unsigned int urand()
@@ -139,7 +301,7 @@ static unsigned int urand()
 	return rc;
 }
 
-int mpi_working_function(MPI_Comm *comm, int proc_count, int *dims,
+static int mpi_working_function(MPI_Comm *comm, int proc_count, int *dims,
 		struct processor_data *pdata)
 {
 	int i, j, k, rc, found;

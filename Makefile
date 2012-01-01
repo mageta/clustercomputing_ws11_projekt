@@ -1,4 +1,4 @@
-TARGETS = connectivity pixelpattern mpi_test
+TARGETS = pixelpattern mpi_test find_components
 
 CC	= /usr/local/bin/mpicc
 CCFLAGS	= -Wall --std=c99 -ggdb -pthread
@@ -9,14 +9,14 @@ LIBS	=
 
 all: $(TARGETS) $(DIRS)
 
-connectivity: connectivity.o helper
-	$(CC) $(CCFLAGS) $(DIRS:%=-L./%) $(DIRS:%=-I./%) -o $@ $< $(LDFLAGS)
-
 pixelpattern: pixelpattern.o helper
 	$(CC) $(CCFLAGS) $(DIRS:%=-L./%) $(DIRS:%=-I./%) -o $@ $< $(LDFLAGS)
 
 mpi_test: mpi_test.o helper
 	$(CC) $(CCFLAGS) $(DIRS:%=-L./%) $(DIRS:%=-I./%) -o $@ $< $(LDFLAGS)
+
+find_components: find_components.o components.o helper
+	$(CC) $(CCFLAGS) $(DIRS:%=-L./%) $(DIRS:%=-I./%) -o $@ $< components.o $(LDFLAGS)
 
 $(DIRS): force_look
 	@cd $@; $(MAKE) all

@@ -206,14 +206,14 @@ void * list_element(list_type *list, unsigned int pos)
 	struct list_element *local_node;
 
 	if(!list)
-		return EINVAL;
+		return NULL;
 
 	if(pos == 0) /* the first */
 		return list_head(list);
 	else if((pos + 1) == list->elements) /* the last */
 		return list_tail(list);
 	else if(pos >= list->elements)
-		return EINVAL;
+		return NULL;
 
 	local_node = list->head;
 	for(i = 0; (i < pos) && local_node; i++) {
@@ -222,7 +222,7 @@ void * list_element(list_type *list, unsigned int pos)
 
 	/* it seems like someone manipulated the list */
 	if(!local_node || !local_node->value)
-		return EFAULT;
+		return NULL;
 
 	return local_node->value;
 }
