@@ -47,6 +47,7 @@ int
 main(int argc, char ** argv)
 {
 	int i,j, rc;
+	unsigned char val;
 	matrix_type *matrix;
 
 	if(argc < 2) {
@@ -63,11 +64,19 @@ main(int argc, char ** argv)
 	fprintf(stdout, "test_matrix:\n");
 	for (i = 0; i < matrix->m; i++) {
 		for (j = 0; j < (matrix->n - 1); j++) {
-			fprintf(stdout, "%hd, ", *((unsigned short int *)
-						matrix_get(matrix, i, j)));
+			val = *((unsigned char *) matrix_get(
+						matrix, i, j));
+			if(val)
+				fprintf(stdout, "%2hhd, ", val);
+			else
+				fprintf(stdout, "  , ");
 		}
-		fprintf(stdout, "%hd\n", *((unsigned short int *)
-					matrix_get(matrix, i, j)));
+		val = *((unsigned char *) matrix_get(matrix, i, j));
+
+		if(val)
+			fprintf(stdout, "%2hhd\n", val);
+		else
+			fprintf(stdout, "  \n");
 	}
 
 	rc = find_components(matrix);
@@ -153,7 +162,7 @@ static void register_mpi_component_type()
 		MPI_INT,
 		MPI_UNSIGNED,
 		MPI_UNSIGNED,
-		MPI_UNSIGNED_SHORT,
+		MPI_UNSIGNED,
 		MPI_UB
 	};
 
@@ -188,7 +197,7 @@ static int read_input_file(matrix_type **m, char *file_name)
 	unsigned int height, width;
 	long int read_value;
 	size_t line_length;
-	unsigned short int write_value;
+	unsigned char write_value;
 	char *line = NULL, *endp, *strp;
 	FILE *input = NULL;
 	matrix_type *matrix;
@@ -236,7 +245,7 @@ static int read_input_file(matrix_type **m, char *file_name)
 
 	fprintf(stdout, "height: %d; width: %d\n", height, width);
 
-	rc = matrix_create(&matrix, height, width, sizeof(unsigned short int));
+	rc = matrix_create(&matrix, height, width, sizeof(unsigned char));
 	if(rc) {
 		fprintf(stderr, "Could not create a matrix.. %s\n",
 				strerror(rc));

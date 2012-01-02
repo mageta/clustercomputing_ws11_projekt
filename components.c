@@ -16,9 +16,9 @@ struct node {
 static void
 visit_node(matrix_type *colors, queue_type *to_be_visited, struct node *node)
 {
-	unsigned short int color;
+	unsigned char color;
 
-	color = *((unsigned short int *) matrix_get(colors, node->i, node->j));
+	color = *((unsigned char *) matrix_get(colors, node->i, node->j));
 
 	/*
 	 * push unvisited nodes onto the stack
@@ -37,13 +37,17 @@ visit_node(matrix_type *colors, queue_type *to_be_visited, struct node *node)
 static int
 complete_component(matrix_type *mat, matrix_type *colors,
 		matrix_type *components, queue_type *to_be_visited,
-		struct node *search_node, unsigned short int cur_component)
+		struct node *search_node, struct component *cur_comp_p)
 {
 	int i, j;
 	struct node node, current_node;
-	unsigned short int value, component;
+	unsigned char value;
+	struct component *comp_p;
 
 	queue_type *black_neighbours;
+
+	if(!cur_comp_p)
+		return EINVAL;
 
 	queue_create(&black_neighbours, sizeof(*search_node));
 	queue_enqueue(black_neighbours, search_node);
@@ -70,19 +74,17 @@ complete_component(matrix_type *mat, matrix_type *colors,
 				node.i = current_node.i + i;
 				node.j = current_node.j + j;
 
-				value = *((unsigned short int *)
+				value = *((unsigned char *)
 						matrix_get(mat, node.i,
 								node.j));
-				component = *((unsigned short int *)
-						matrix_get(components, node.i,
-								node.j));
+				comp_p = *((struct component **) matrix_get(
+						components, node.i, node.j));
 
-				if(cur_component && !component && value) {
-					component = cur_component;
+				if(!comp_p && value) {
+					cur_comp_p->size += 1;
 
 					matrix_set(components, node.i, node.j,
-							&component);
-
+							&cur_comp_p);
 					queue_enqueue(black_neighbours, &node);
 				}
 
@@ -100,12 +102,13 @@ int
 find_components(matrix_type *mat)
 {
 	int i, j;
-	unsigned short int color;
-	unsigned short int max_component = 0, cur_component;
-	unsigned short int value;
+	unsigned int max_component = 0;
+	unsigned char color;
+	unsigned char value;
 	matrix_type *colors = 0, *components = 0;
 	queue_type *to_be_visited = 0;
 
+	struct component *comp_p;
 	struct node node, current_node;
 
 	matrix_copy(&colors, mat);
@@ -116,7 +119,7 @@ find_components(matrix_type *mat)
 	 */
 	matrix_init(colors, 0);
 
-	matrix_copy(&components, mat);
+	matrix_create(&components, mat->m, mat->n, sizeof(comp_p));
 	/* 0 - no component */
 	matrix_init(components, 0);
 
@@ -135,33 +138,37 @@ find_components(matrix_type *mat)
 		color = 2;
 		matrix_set(colors, current_node.i, current_node.j, &color);
 
-		value = *((unsigned short int *) matrix_get(mat,
+		value = *((unsigned char *) matrix_get(mat,
 				current_node.i, current_node.j));
 		/* white nodes need not further handling */
 		if(!value) {
-			cur_component = 0;
+			comp_p = 0;
 		} else {
 			/*
 			 * in case of black nodes we want to update the
 			 * components
 			 */
-			cur_component =
-				*((unsigned short int *) matrix_get(components,
+			comp_p = *((struct component **) matrix_get(components,
 					current_node.i, current_node.j));
 
 			/*
 			 * in case the node is black and has no component,
 			 * it is a part of a new component
 			 */
-			if(!cur_component) {
-				max_component++;
+			if(!comp_p) {
+				component_create(&comp_p);
+
+				comp_p->example_coords[0] = current_node.i;
+				comp_p->example_coords[1] = current_node.j;
+				comp_p->component_id = ++max_component;
+				comp_p->size = 1;
+
 				matrix_set(components, current_node.i,
-						current_node.j,	&max_component);
-				cur_component = max_component;
+						current_node.j, &comp_p);
 
 				complete_component(mat, colors, components,
 						to_be_visited, &current_node,
-						cur_component);
+						comp_p);
 			}
 		}
 
@@ -193,21 +200,19 @@ find_components(matrix_type *mat)
 
 	fprintf(stdout, "\ncomponents:\n");
 	for (i = 0; i < components->m; i++) {
-		unsigned short int k;
-
 		for (j = 0; j < (components->n - 1); j++) {
-			k = *((unsigned short int *)
-					matrix_get(components, i, j));
+			comp_p = *((struct component **) matrix_get(components,
+						i, j));
 
-			if(k)
-				fprintf(stdout, "%2hd, ", k);
+			if(comp_p)
+				fprintf(stdout, "%2d, ", comp_p->component_id);
 			else
 				fprintf(stdout, "  , ");
 		}
-		k = *((unsigned short int *) matrix_get(components, i, j));
+		comp_p = *((struct component **) matrix_get(components, i, j));
 
-		if(k)
-			fprintf(stdout, "%2hd\n", k);
+		if(comp_p)
+			fprintf(stdout, "%2d\n", comp_p->component_id);
 		else
 			fprintf(stdout, "  \n");
 	}
@@ -216,5 +221,23 @@ find_components(matrix_type *mat)
 	matrix_destroy(components);
 	matrix_destroy(colors);
 
+	return 0;
+}
+
+int
+component_create(struct component ** comp)
+{
+	struct component *c;
+
+	if(!comp)
+		return EINVAL;
+
+	c = (struct component *) malloc(sizeof(*c));
+	if(!c)
+		return ENOMEM;
+
+	memset(c, 0, sizeof(*c));
+
+	*comp = c;
 	return 0;
 }

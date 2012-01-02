@@ -107,7 +107,7 @@ void matrix_init(matrix_type *matrix, char c)
 	else
 		endian = 0; /* big endian */
 
-	if(c == 0)
+	if((c == 0) || (matrix->element_size == 1))
 		memset(matrix->matrix, c, matrix_size_byte(matrix));
 	else {
 		for(i = 0; i < matrix_size(matrix);

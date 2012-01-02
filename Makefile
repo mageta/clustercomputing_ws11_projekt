@@ -9,8 +9,8 @@ LIBS	=
 
 all: $(TARGETS) $(DIRS)
 
-pixelpattern: pixelpattern.o helper
-	$(CC) $(CCFLAGS) $(DIRS:%=-L./%) $(DIRS:%=-I./%) -o $@ $< $(LDFLAGS)
+pixelpattern: pixelpattern.o components.o helper
+	$(CC) $(CCFLAGS) $(DIRS:%=-L./%) $(DIRS:%=-I./%) -o $@ $< components.o $(LDFLAGS)
 
 mpi_test: mpi_test.o helper
 	$(CC) $(CCFLAGS) $(DIRS:%=-L./%) $(DIRS:%=-I./%) -o $@ $< $(LDFLAGS)
