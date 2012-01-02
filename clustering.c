@@ -1,3 +1,4 @@
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -17,7 +18,7 @@ const int N = 19;
 const int M = 8;
 
 static char * usage() {
-	static char text[256];
+	static char text[256];	
 	int written;
 	char *textp = text;
 
@@ -38,6 +39,33 @@ void printmat(int* matrix) {
 	}
 }
 
+void printcolumns(int* matrix, int newN) {
+	for(int row = 0; row < M; row++)
+	{
+		for(int col = 0; col < newN; col++)
+		{
+			printf("%d ", matrix[newN*row+col]);
+		}
+		printf("\n");
+	}
+}
+
+int* extract_col(int* matrix, int from, int to) {
+	int* extracted_columns;
+	int size = to - from;
+	int i = 0;
+	extracted_columns = (int*)calloc( size*M, sizeof(int));
+	for(int row = 0; row < M; row++)
+	{
+		for(int col = from; col < to; col++)
+		{
+			extracted_columns[i] = matrix[N*row+col];
+			i++;
+		}
+	}
+	return extracted_columns;
+}
+
 static int read_input_file(matrix_type **m, char *file_name){
 	int i, j, rc;
 	unsigned int height, width;
@@ -50,7 +78,7 @@ static int read_input_file(matrix_type **m, char *file_name){
 	queue_type *lines;
 
 	if(queue_create(&lines, 0, sizeof(line))) {
-		fprintf(stderr, "Not enougth memory.\n");
+		fprintf(stderr, "Not enough memory.\n");
 		goto err_out;
 	}
 
@@ -89,7 +117,7 @@ static int read_input_file(matrix_type **m, char *file_name){
 
 	height = queue_size(lines);
 
-	fprintf(stdout, "height: %d; width: %d\n", height, width);
+	//fprintf(stdout, "height: %d; width: %d\n", height, width);
 
 	rc = matrix_create(&matrix, height, width, sizeof(unsigned short int));
 	if(rc) {
@@ -144,18 +172,23 @@ err_out:
 	return -1;
 }
 
-//int main(int argc, char** argv)
 int main(int argc, char *argv[]) {
 	int rank;	// rank of the process
 	int p;		// number of process
+	int source; 
+	int dest;
+	int tag;
+	int sum = 0;
 	MPI_Status status;
 	MPI_Datatype mpi_matrix_type;
+	int column;
+
 
 	// some mpi crap
   	MPI_Init(&argc, &argv);
   	MPI_Comm_size(MPI_COMM_WORLD, &p);
   	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-	printf("process %d of %d reports for duty!\n", rank, p);
+	// printf("process %d of %d reports for duty!\n", rank, p);
 
 	int i,j;
 	matrix_type *matrix;
@@ -167,17 +200,6 @@ int main(int argc, char *argv[]) {
 	if(read_input_file(&matrix, argv[1])) {
 		fprintf(stderr, "\n%s\n", usage());
 		return -1;
-	}
-
-	// print matrix to stdout
-	fprintf(stdout, "test_matrix:\n");
-	for (i = 0; i < matrix->m; i++) {
-		for (j = 0; j < (matrix->n - 1); j++) {
-			fprintf(stdout, "%hd, ", *((unsigned short int *)
-						matrix_get(matrix, i, j)));
-		}
-		fprintf(stdout, "%hd\n", *((unsigned short int *)
-					matrix_get(matrix, i, j)));
 	}
 
 	for (i = 0; i < matrix->m; i++) {
@@ -197,22 +219,70 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 
-	if (rank == 0) { // sender
-		printf("%s\n", "sender is active, sending matrix ...");
-		MPI_Barrier( MPI_COMM_WORLD);
-		MPI_Send(matrix_to_transfer, 1, mpi_matrix_type, 1, 0, MPI_COMM_WORLD);
-	} else {
-		printf("%s%i%s\n", "receiver ", rank , " is active, receiving matrix ...");
-		MPI_Barrier( MPI_COMM_WORLD);
-		MPI_Recv(matrix_to_transfer, 1, mpi_matrix_type, 0, 0, MPI_COMM_WORLD, &status);
-		printmat(matrix_to_transfer);
-		
+
+	/**
+	 *	sending the matrix to every node
+	 */
+
+	if (rank == 0) { // sender/master
+		tag = 0;
+		for( dest = 1; dest < p; dest++) {
+			printf("rank=%i: Sending matrix to rank=%i\n", rank, dest);
+			MPI_Send(matrix_to_transfer, 1, mpi_matrix_type, dest, tag, MPI_COMM_WORLD);
+		}	
+	} else { // anything but master
+		tag = 0;
+		source = 0; // from master
+		MPI_Recv(matrix_to_transfer, 1, mpi_matrix_type, source, tag, MPI_COMM_WORLD, &status);
+		printf("rank=%i: matrix received\n", rank);
 	}
 
+
+	/**
+	 *	basic communication in-between the nodes
+	 */
+
+	// all nodes except the last one send their column to the next one 
+	if (rank < p - 1) { 
+		column = rank;
+		dest = rank + 1;
+		MPI_Send(&column, 1, MPI_INT, dest, 5, MPI_COMM_WORLD);
+		printf("rank=%i: column has been sent to rank=%i\n", rank, dest );
+	}
+	
+	// all nodes except the first one are receiving the column of the previous one
+	if (rank > 0) {
+		source = rank - 1;
+		MPI_Recv(&column, 1, MPI_INT, source, 5, MPI_COMM_WORLD, &status);
+		printf("rank=%i: column has been received from rank=%i\n", rank, source);
+	}
+
+	/**
+	 *	calculation	
+	 */
+	int number_of_ranges = N / p; // in how many ranges the matrix will be devided
+	int last_range = 0;
+	int from = rank * number_of_ranges; // beginning of the range 
+	int to = from + p; // end of the range
+
+	// if N divided by p equals an odd number, the range of the last node
+	// will be expanded to N	
+	if (N % p != 0) {
+		last_range = N - (number_of_ranges * p);
+	}
+	if ( rank == p - 1) { // last node
+		to = to + last_range;		
+	}
+
+	int* cols = extract_col(matrix_to_transfer, from, to);
+	printf("rank=%i is now printing his columns from %i tp %i\n",rank, from, to);
+	printcolumns(cols, to-from);
+
+		
+	matrix_destroy(matrix);
 	free(matrix_to_transfer);
 	MPI_Type_free(&mpi_matrix_type);
 	MPI_Finalize();
-
 	return 0;
 }
 
