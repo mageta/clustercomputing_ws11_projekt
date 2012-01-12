@@ -7,18 +7,157 @@
 
 #include "matrix.h"
 #include "queue.h"
+#include "stack.h"
+#include "vector.h"
+#include "constvector.h"
+#include "list.h"
 #include "components.h"
+#include "matrixgraph.h"
 
+#define err_if(rc) if(rc && fprintf(stderr, "ERR in %s:%d:%s(): %s\n", __FILE__, __LINE__, __func__, strerror(rc)))
+
+/* we distinguish this to save memory in the graph */
 struct node {
 	int i, j;
 };
 
-static void
-visit_node(matrix_type *colors, queue_type *to_be_visited, struct node *node)
-{
+struct graph_node {
 	unsigned char color;
+	struct component *component;
+} __attribute__((__packed__));
 
-	color = *((unsigned char *) matrix_get(colors, node->i, node->j));
+static int
+borders_create(vector_type **borders, matrix_type *mat)
+{
+	int rc = 0, i;
+	vector_type *bord;
+	matrix_type *border;
+
+	if(!borders || !mat)
+		return EINVAL;
+
+	rc = vector_create(&bord, BORDER_MAX, sizeof(*border));
+	err_if(rc)
+		return ENOMEM;
+
+	for(i = BORDER_MIN; i < BORDER_MAX; i++) {
+		switch(i) {
+		case BORDER_LEFT:
+		case BORDER_RIGHT:
+			rc = matrix_create(&border, mat->m, 1,
+					sizeof(unsigned int));
+			break;
+		case BORDER_TOP:
+		case BORDER_BOTTOM:
+			rc = matrix_create(&border, 1, mat->n,
+					sizeof(unsigned int));
+			break;
+		}
+
+		err_if(rc)
+			goto err_out;
+
+		vector_set_value(bord, i, border);
+
+		/*
+		 * just free the containing struct, these informations are in
+		 * the vector
+		 */
+		free(border);
+	}
+
+	/* because we didn't use add */
+	bord->elements = BORDER_MAX;
+
+	*borders = bord;
+	return 0;
+err_out:
+	vector_destroy(bord);
+	return rc;
+}
+
+void
+borders_destroy(vector_type *borders)
+{
+	int i, max;
+	matrix_type *border;
+
+	max = borders->elements;
+	for(i = 0; i < max; i++) {
+		border = vector_get_value(borders, 0);
+		if(!border || !border->matrix)
+			continue;
+
+		free(border->matrix);
+	}
+
+	vector_destroy(borders);
+}
+
+static int
+borders_fill(vector_type *borders, matrix_graph_type *graph)
+{
+	int i, j;
+	struct graph_node *node;
+	matrix_type *border;
+
+	if(!borders || !graph || !graph->matrix)
+		return EINVAL;
+
+	for(j = 0; j < graph->matrix->n; j = (j + graph->matrix->n - 1)) {
+		if(j == 0)
+			border = vector_get_value(borders, BORDER_LEFT);
+		else
+			border = vector_get_value(borders, BORDER_RIGHT);
+
+		if(!border || (border->m != graph->matrix->m))
+			return EFAULT;
+
+		for(i = 0; i < border->m; i++) {
+			node = (struct graph_node *)
+				matrix_graph_get_node(graph, i, j);
+
+			if(!node)
+				return EFAULT;
+			if(!node->component)
+				continue;
+
+			matrix_set(border, i, 0,
+					&node->component->component_id);
+		}
+	}
+
+	for(i = 0; i < graph->matrix->m; i = (i + graph->matrix->m - 1)) {
+		if(i == 0)
+			border = vector_get_value(borders, BORDER_TOP);
+		else
+			border = vector_get_value(borders, BORDER_BOTTOM);
+
+		if(!border || (border->n != graph->matrix->n))
+			return EFAULT;
+
+		for(j = 0; j < border->n; j++) {
+			node = (struct graph_node *)
+				matrix_graph_get_node(graph, i, j);
+
+			if(!node)
+				return EFAULT;
+			if(!node->component)
+				continue;
+
+			matrix_set(border, 0, j,
+					&node->component->component_id);
+		}
+	}
+
+	return 0;
+}
+
+static int
+visit_node(stack_type *to_be_visited,
+		struct graph_node *node, struct node *coords)
+{
+	int rc = 0;
 
 	/*
 	 * push unvisited nodes onto the stack
@@ -26,202 +165,342 @@ visit_node(matrix_type *colors, queue_type *to_be_visited, struct node *node)
 	 * gray nodes already on the stack,
 	 * black nodes are already expanded
 	 */
-	if(!color) { /* white */
-		queue_enqueue(to_be_visited, node);
+	if(node->color < 1) { /* white */
+		rc = stack_push(to_be_visited, coords);
+		err_if(rc)
+			goto err_enqueue;
 
-		color = 1; /* gray */
-		matrix_set(colors, node->i, node->j, &color);
+		node->color = 1; /* gray */
 	}
+
+	return 0;
+err_enqueue:
+	return rc;
 }
 
 static int
-complete_component(matrix_type *mat, matrix_type *colors,
-		matrix_type *components, queue_type *to_be_visited,
-		struct node *search_node, struct component *cur_comp_p)
+complete_component(matrix_type *mat,
+		matrix_graph_type *graph,
+		stack_type *to_be_visited,
+		constvector_type *components,
+		struct graph_node *search_node,
+		struct node *search_coords)
 {
-	int i, j;
-	struct node node, current_node;
+	static stack_type *black_neighbours = 0;
+	static struct matrix_graph_neighbor_iterator *neighbours;
+
+	int rc = 0;
+	struct node coords, current_coords;
 	unsigned char value;
-	struct component *comp_p;
 
-	queue_type *black_neighbours;
+	struct graph_node *node;
+	struct component comp;
 
-	if(!cur_comp_p)
+	matrix_graph_node_type iter_node;
+
+	if(!mat || !graph || !to_be_visited || !components ||
+			!search_node || !search_node)
 		return EINVAL;
 
-	queue_create(&black_neighbours, sizeof(*search_node));
-	queue_enqueue(black_neighbours, search_node);
+	value = *((unsigned char *) matrix_get(mat, search_coords->i,
+				search_coords->j));
+	/*
+	 * if the value is not black or if this component was
+	 * already completed
+	 */
+	if(!value || search_node->component)
+		return 0;
 
-	while(queue_size(black_neighbours)) {
-		queue_dequeue(black_neighbours, &current_node);
+	if(!black_neighbours) {
+		/*
+		 * somewhat hacky, but in cases where this function is often
+		 * called, we safe the time to reallocate memory
+		 */
+		rc = stack_create(&black_neighbours, sizeof(*search_coords));
+		err_if(rc)
+			goto err_stack_bn;
+	}
 
-		for (i = -1; i < 2; i++) {
-			/* invalid nods */
-			if(!matrix_index_valid(mat, current_node.i + i,
-						current_node.j))
-				continue;
+	if(!neighbours) {
+		/* same reason as above */
+		rc = matrix_graph_neighbor_iterator_create(&neighbours,
+				graph, search_coords->i, search_coords->j);
+		err_if(rc)
+			goto err_iter_neighbours;
+	}
 
-			for (j = -1; j < 2; j++) {
-				/* current node */
-				if(!i && !j)
-					continue;
+	/* init a new component for the search_node */
+	memset(&comp, 0, sizeof(comp));
+	comp.example_coords[0] = search_coords->i;
+	comp.example_coords[1] = search_coords->j;
+	comp.component_id = components->elements + 1;
+	comp.size = 1;
 
-				/* invalid nodes */
-				if(!matrix_index_valid(mat, current_node.i + i,
-							current_node.j + j))
-					continue;
+	rc = constvector_add(components, &comp);
+	err_if(rc)
+		goto err_component_create;
 
-				node.i = current_node.i + i;
-				node.j = current_node.j + j;
+	search_node->component = (struct component *) constvector_element(
+			components, components->elements - 1);
 
-				value = *((unsigned char *)
-						matrix_get(mat, node.i,
-								node.j));
-				comp_p = *((struct component **) matrix_get(
-						components, node.i, node.j));
+	/* now add all connected black nodes to this component */
+	rc = stack_push(black_neighbours, search_coords);
+	err_if(rc)
+		goto err_push_bn;
 
-				if(!comp_p && value) {
-					cur_comp_p->size += 1;
+	while(stack_size(black_neighbours)) {
+		stack_pop(black_neighbours, &current_coords);
 
-					matrix_set(components, node.i, node.j,
-							&cur_comp_p);
-					queue_enqueue(black_neighbours, &node);
-				}
+		rc = matrix_graph_neighbor_iterator_reinit(neighbours,
+				graph, current_coords.i, current_coords.j);
+		err_if(rc)
+			goto err_iterator_reinit;
 
-				visit_node(colors, to_be_visited, &node);
+		while(matrix_graph_neighbor_iterator_has_next(neighbours)) {
+			matrix_graph_neighbor_iterator_next(neighbours,
+					&iter_node);
+
+			node = (struct graph_node *) iter_node.mem;
+			coords.i = iter_node.i;
+			coords.j = iter_node.j;
+
+			value = *((unsigned char *) matrix_get(mat,
+					coords.i, coords.j));
+
+			if(!node->component && value) {
+				node->component = search_node->component;
+				node->component->size += 1;
+
+				rc = stack_push(black_neighbours,
+						&coords);
+				err_if(rc)
+					goto err_push_bn;
+
+				node->color = 2;
 			}
+			else {
+				rc = visit_node(to_be_visited, node, &coords);
+				err_if(rc)
+					goto err_visit_node;
+			}
+
+			/*
+			 * there is no need to look at this edge again
+			 */
+			matrix_graph_del_neighbor(graph,
+					current_coords.i, current_coords.j,
+					iter_node.rel_pos);
+			matrix_graph_del_neighbor(graph,
+					coords.i, coords.j,
+					matrix_graph_neighbor_opposite(
+						iter_node.rel_pos));
 		}
 	}
 
-	queue_destroy(black_neighbours);
+	/*
+	 * as long as the stack is static
+	 *
+	 * stack_destroy(black_neighbours);
+	 */
 
 	return 0;
+err_visit_node:
+err_iterator_reinit:
+err_push_bn:
+err_component_create:
+	matrix_graph_neighbor_iterator_destroy(neighbours);
+err_iter_neighbours:
+	stack_destroy(black_neighbours);
+err_stack_bn:
+	return rc;
 }
 
 int
-find_components(matrix_type *mat)
+find_components(matrix_type *mat,
+		struct component_list **comp_list,
+		vector_type **borders)
 {
-	int i, j;
-	unsigned int max_component = 0;
-	unsigned char color;
-	unsigned char value;
-	matrix_type *colors = 0, *components = 0;
-	queue_type *to_be_visited = 0;
+	int rc = 0;
 
-	struct component *comp_p;
-	struct node node, current_node;
+	stack_type *to_be_visited = 0;
+	constvector_type *tmp_comp;
+	vector_type *bord = NULL;
+	matrix_graph_type *graph;
+	matrix_graph_node_type iter_node;
 
-	matrix_copy(&colors, mat);
+	struct component comp;
+	struct component_list *compl_p;
+	struct node coords, current_coords;
+	struct graph_node init_node, *node, *current_node;
+	struct matrix_graph_neighbor_iterator *neighbours;
+
+	if(!comp_list)
+		return EINVAL;
+
+	rc = component_list_create(&compl_p);
+	err_if(rc)
+		goto err_compl_create;
+
+	if(borders) {
+		rc = borders_create(&bord, mat);
+		err_if(rc)
+			goto err_borders_create;
+	}
+
+	rc = constvector_create(&tmp_comp, 0, sizeof(comp));
+	err_if(rc)
+		goto err_list_tc;
+
+	rc = matrix_graph_create(&graph, mat->m, mat->n, sizeof(*node));
+	err_if(rc)
+		goto err_graph_create;
+
 	/*
 	 * 0 - white
 	 * 1 - gray
 	 * 2 - black
 	 */
-	matrix_init(colors, 0);
+	init_node.color = 0;
+	init_node.component = NULL;
+	rc = matrix_graph_init(graph, &init_node);
+	err_if(rc)
+		goto err_graph_init;
 
-	matrix_create(&components, mat->m, mat->n, sizeof(comp_p));
-	/* 0 - no component */
-	matrix_init(components, 0);
+	rc = matrix_graph_neighbor_iterator_create(&neighbours,
+			graph, 0, 0);
+	err_if(rc)
+		goto err_iter_neighbours;
 
-	queue_create(&to_be_visited, sizeof(current_node));
+	rc = stack_create(&to_be_visited, sizeof(coords));
+	err_if(rc)
+		goto err_queue_tbv;
 
-	/* initial node to expand */
-	node.i = 0;
-	node.j = 0;
-	color = 1;
-	matrix_set(colors, node.i, node.j, &color);
-	queue_enqueue(to_be_visited, &node);
+	node = (struct graph_node *) matrix_graph_get_node(graph, 0, 0);
+	coords.i = 0;
+	coords.j = 0;
 
-	while(queue_size(to_be_visited)) {
-		queue_dequeue(to_be_visited, &current_node);
+	/* initial coordinates to expand */
+	rc = stack_push(to_be_visited, &coords);
+	err_if(rc)
+		goto err_enqueue_tbv;
 
-		color = 2;
-		matrix_set(colors, current_node.i, current_node.j, &color);
+	/* look at the initial node */
+	rc = complete_component(mat, graph, to_be_visited,
+			tmp_comp, node, &coords);
+	err_if(rc)
+		goto err_complete_comp;
 
-		value = *((unsigned char *) matrix_get(mat,
-				current_node.i, current_node.j));
-		/* white nodes need not further handling */
-		if(!value) {
-			comp_p = 0;
-		} else {
+	while(stack_size(to_be_visited)) {
+		stack_pop(to_be_visited, &current_coords);
+
+		current_node = (struct graph_node *)
+					matrix_graph_get_node(graph,
+						current_coords.i, current_coords.j);
+
+		if(current_node->color > 1)
+			continue;
+		/* color it black */
+		current_node->color = 2;
+
+		/* reinit the iterator with the new node */
+		rc = matrix_graph_neighbor_iterator_reinit(neighbours,
+				graph, current_coords.i, current_coords.j);
+		err_if(rc)
+			goto err_iterator_reinit;
+
+		/* look at all neighbours */
+		while(matrix_graph_neighbor_iterator_has_next(neighbours)) {
+			matrix_graph_neighbor_iterator_next(neighbours,
+					&iter_node);
+
+			node = (struct graph_node *) iter_node.mem;
+			/* use the coordinates of this neighbour */
+			coords.i = iter_node.i;
+			coords.j = iter_node.j;
+
+			rc = complete_component(mat, graph, to_be_visited,
+					tmp_comp, node, &coords);
+			err_if(rc)
+				goto err_complete_comp;
+
+			rc = visit_node(to_be_visited, node, &coords);
+			err_if(rc)
+				goto err_visit_node;
+
 			/*
-			 * in case of black nodes we want to update the
-			 * components
+			 * there is no need to look at this edge again
 			 */
-			comp_p = *((struct component **) matrix_get(components,
-					current_node.i, current_node.j));
-
-			/*
-			 * in case the node is black and has no component,
-			 * it is a part of a new component
-			 */
-			if(!comp_p) {
-				component_create(&comp_p);
-
-				comp_p->example_coords[0] = current_node.i;
-				comp_p->example_coords[1] = current_node.j;
-				comp_p->component_id = ++max_component;
-				comp_p->size = 1;
-
-				matrix_set(components, current_node.i,
-						current_node.j, &comp_p);
-
-				complete_component(mat, colors, components,
-						to_be_visited, &current_node,
-						comp_p);
-			}
-		}
-
-		/* push all valid neighbours onto the stack (expand node) */
-		for (i = -1; i < 2; i++) {
-			/* invalid nods */
-			if(!matrix_index_valid(mat, current_node.i + i,
-						current_node.j))
-				continue;
-
-			for (j = -1; j < 2; j++) {
-				/* current node */
-				if(!i && !j)
-					continue;
-
-				/* invalid nodes */
-				if(!matrix_index_valid(mat, current_node.i + i,
-						current_node.j + j))
-					continue;
-
-				node.i = current_node.i + i;
-				node.j = current_node.j + j;
-
-				visit_node(colors, to_be_visited, &node);
-			}
+			matrix_graph_del_neighbor(graph,
+					current_coords.i, current_coords.j,
+					iter_node.rel_pos);
+			matrix_graph_del_neighbor(graph,
+					coords.i, coords.j,
+					matrix_graph_neighbor_opposite(
+						iter_node.rel_pos));
 		}
 	}
+{ /* only for debugging, can be removed later */
+	int i, j;
+	fprintf(stdout, "\n");
+	for(i = 0; i < graph->matrix->m; i++) {
+		for(j = 0; j < (graph->matrix->n - 1); j++) {
+			node = (struct graph_node *)	matrix_graph_get_node(graph, i, j);
 
-
-	fprintf(stdout, "\ncomponents:\n");
-	for (i = 0; i < components->m; i++) {
-		for (j = 0; j < (components->n - 1); j++) {
-			comp_p = *((struct component **) matrix_get(components,
-						i, j));
-
-			if(comp_p)
-				fprintf(stdout, "%2d, ", comp_p->component_id);
+			if(node->component)
+				fprintf(stdout, "%2u, ", node->component->component_id);
 			else
 				fprintf(stdout, "  , ");
 		}
-		comp_p = *((struct component **) matrix_get(components, i, j));
 
-		if(comp_p)
-			fprintf(stdout, "%2d\n", comp_p->component_id);
+		node = (struct graph_node *)	matrix_graph_get_node(graph, i, j);
+
+		if(node->component)
+			fprintf(stdout, "%2u\n", node->component->component_id);
 		else
 			fprintf(stdout, "  \n");
 	}
+	fprintf(stdout, "\n");
+}
 
-	queue_destroy(to_be_visited);
-	matrix_destroy(components);
-	matrix_destroy(colors);
+	if(bord) {
+		rc = borders_fill(bord, graph);
+		err_if(rc)
+			goto err_fill_borders;
+
+		*borders = bord;
+	}
+
+	stack_destroy(to_be_visited);
+	matrix_graph_destroy(graph);
+
+	rc = vector_append_constvector(compl_p->components, tmp_comp);
+	err_if(rc)
+		goto err_vecappend_components;
+	*comp_list = compl_p;
+
+	constvector_destroy(tmp_comp);
 
 	return 0;
+err_fill_borders:
+err_iterator_reinit:
+err_visit_node:
+err_complete_comp:
+err_enqueue_tbv:
+	stack_destroy(to_be_visited);
+err_queue_tbv:
+	matrix_graph_neighbor_iterator_destroy(neighbours);
+err_iter_neighbours:
+err_graph_init:
+	matrix_graph_destroy(graph);
+err_vecappend_components:
+err_graph_create:
+	constvector_destroy(tmp_comp);
+err_list_tc:
+	if(bord) borders_destroy(bord);
+err_borders_create:
+	component_list_destroy(compl_p);
+err_compl_create:
+	return rc;
 }
 
 int
@@ -240,4 +519,70 @@ component_create(struct component ** comp)
 
 	*comp = c;
 	return 0;
+}
+
+void
+component_destroy(struct component * comp)
+{
+	if(!comp)
+		return;
+
+	free(comp);
+}
+
+int
+component_list_create(struct component_list ** compl)
+{
+	int rc = 0;
+	struct component_list *cl;
+
+	if(!compl)
+		return EINVAL;
+
+	cl = (struct component_list *) malloc(sizeof(*cl));
+	if(!cl)
+		return ENOMEM;
+
+	memset(cl, 0, sizeof(*cl));
+
+	rc = vector_create(&cl->components, 0, sizeof(struct component));
+	err_if(rc)
+		goto err_vector_create;
+
+	*compl = cl;
+
+	return 0;
+err_vector_create:
+	free(cl);
+	return rc;
+}
+
+void
+component_list_destroy(struct component_list * compl)
+{
+	if(!compl)
+		return;
+
+	vector_destroy(compl->components);
+	free(compl);
+}
+
+char * strborder(enum border_nr nr)
+{
+	static char str[10];
+
+	switch(nr) {
+		case BORDER_LEFT:
+			strcpy(str, "LEFT"); break;
+		case BORDER_TOP:
+			strcpy(str, "TOP"); break;
+		case BORDER_RIGHT:
+			strcpy(str, "RIGHT"); break;
+		case BORDER_BOTTOM:
+			strcpy(str, "BOTTOM"); break;
+		default:
+			strcpy(str, "UNDEFINED"); break;
+	}
+
+	return str;
 }

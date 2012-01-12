@@ -6,7 +6,7 @@
 
 #include <errno.h>
 
-int stack_create(stack_type **stack, size_t element_size)
+int stack_create_prealloc(stack_type **stack, size_t pre, size_t element_size)
 {
 	int rc;
 	stack_type *new_s;
@@ -19,7 +19,7 @@ int stack_create(stack_type **stack, size_t element_size)
 		return ENOMEM;
 	memset(new_s, 0, sizeof(*new_s));
 
-	rc = vector_create(&new_s->svector, 0, element_size);
+	rc = vector_create(&new_s->svector, pre, element_size);
 	if(rc)
 		goto err_free;
 
@@ -29,6 +29,11 @@ int stack_create(stack_type **stack, size_t element_size)
 err_free:
 	free(new_s);
 	return rc;
+}
+
+int stack_create(stack_type **stack, size_t element_size)
+{
+	return stack_create_prealloc(stack, 0, element_size);
 }
 
 void stack_destroy(stack_type *stack)

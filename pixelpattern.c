@@ -9,10 +9,12 @@
 #include "matrix.h"
 #include "stack.h"
 #include "components.h"
+#include "constvector.h"
+#include "queue.h"
 
 int generate_pixel_pattern(unsigned long int height, unsigned long int width,
 		double filling, unsigned int failcount, unsigned int bulginess,
-		unsigned int size, unsigned int dist);
+		double size, unsigned int dist);
 
 static char * usage(int argc, char ** argv) {
 	static char text[256];
@@ -51,11 +53,11 @@ int
 main(int argc, char ** argv)
 {
 	long int width, height;
-	double filling = 0.3;
+	double filling = 0.5;
 	unsigned int failcount = 500,
-		     bulginess = 4,
-		     size = 10,
+		     bulginess = 3,
 		     dist = 1;
+	double	     size = 0.5;
 
 	if(argc < 3) {
 		fprintf(stderr, "To few arguments given.\n\n%s\n",
@@ -133,32 +135,48 @@ distance_test(matrix_type *matrix, matrix_type *components,
 
 int generate_pixel_pattern(unsigned long int height, unsigned long int width,
 		double filling, unsigned int failcount, unsigned int bulginess,
-		unsigned int size, unsigned int dist)
+		double size, unsigned int dist)
 {
-	int i, j, prob, dice, rc;
+	int i, j, rc;
+	double prob, dice;
 	unsigned char value, color;
 	unsigned long long int filled;
 	unsigned int max_component = 0, failed;
 
+	struct component comp;
 	struct component *comp_p;
 
 	matrix_type *matrix; /* contains unsigned short int */
 	matrix_type *colors; /* contains unsigned short int */
 	matrix_type *components; /* contains (struct component *) */
 	stack_type *to_be_visited;
+//	queue_type *to_be_visited;
+	constvector_type *comp_list;
+//	list_type *comp_list;
 
 	struct node node, current_node;
 
-	matrix_create(&matrix, height, width, sizeof(value));
-	matrix_init(matrix, 0);
+	rc = matrix_create(&matrix, height, width, sizeof(value));
+	if(rc)
+		goto err_matrix_matrix;
 
-	matrix_create(&colors, height, width, sizeof(color));
-	matrix_init(colors, 0);
+	rc = matrix_create(&colors, height, width, sizeof(color));
+	if(rc)
+		goto err_matrix_colors;
 
-	matrix_create(&components, height, width, sizeof(comp_p));
-	matrix_init(components, 0);
+	rc = matrix_create(&components, height, width, sizeof(comp_p));
+	if(rc)
+		goto err_matrix_components;
 
-	stack_create(&to_be_visited, sizeof(node));
+	rc = stack_create(&to_be_visited, sizeof(node));
+//	rc = queue_create(&to_be_visited, sizeof(node));
+	if(rc)
+		goto err_stack_tbv;
+
+	rc = constvector_create(&comp_list, 0, sizeof(comp));
+//	rc = list_create(&comp_list, sizeof(comp));
+	if(rc)
+		goto err_list_cl;
 
 	srand(time(NULL));
 
@@ -188,19 +206,36 @@ int generate_pixel_pattern(unsigned long int height, unsigned long int width,
 		failed = 0;
 
 		/* create a new component */
-		component_create(&comp_p);
-		comp_p->size = 1;
-		comp_p->example_coords[0] = node.i;
-		comp_p->example_coords[1] = node.j;
-		comp_p->component_id = ++max_component;
+		memset(&comp, 0, sizeof(comp));
+		comp.size = 1;
+		comp.example_coords[0] = node.i;
+		comp.example_coords[1] = node.j;
+		comp.component_id = ++max_component;
+
+		rc = constvector_add(comp_list, &comp);
+//		rc = list_append(comp_list, &comp);
+		if(rc)
+			goto err_append_cl;
+
+		comp_p = (struct component *) constvector_element(comp_list, comp_list->elements - 1);
+//		comp_p = (struct component *) list_tail(comp_list);
 
 		matrix_set(matrix, node.i, node.j, &value);
 		matrix_set(components, node.i, node.j, &comp_p);
 
-		stack_push(to_be_visited, &node);
+		rc = stack_push(to_be_visited, &node);
+//		rc = queue_enqueue(to_be_visited, &node);
+		if(rc)
+			goto err_push_tbv;
 
 		while(stack_size(to_be_visited)) {
+//		while(queue_size(to_be_visited)) {
 			stack_pop(to_be_visited, &current_node);
+//			queue_dequeue(to_be_visited, &current_node);
+
+			color = *((unsigned char *) matrix_get(colors, current_node.i, current_node.j));
+			if(color > 1)
+				continue;
 
 			color = 2; /* color it black */
 			matrix_set(colors, current_node.i, current_node.j, &color);
@@ -233,7 +268,7 @@ int generate_pixel_pattern(unsigned long int height, unsigned long int width,
 					if(rc) /* if the dist to some other comp is too short */
 						continue;
 
-					/* the bigger the components get, the smaller gets the probability that it gets an other neighboring */
+					/* the bigger the components get, the smaller gets the probability that it gets an other neighbour */
 					prob = 100 - (comp_p->size * size);
 					if(prob < 0) prob = 0;
 					dice = (rand() % 100) + 1;
@@ -246,78 +281,66 @@ int generate_pixel_pattern(unsigned long int height, unsigned long int width,
 						matrix_set(components, node.i, node.j, &comp_p);
 						matrix_set(matrix, node.i, node.j, &value);
 
-						stack_push(to_be_visited, &node);
+						rc = stack_push(to_be_visited, &node);
+//						rc = queue_enqueue(to_be_visited, &node);
+						if(rc)
+							goto err_push_tbv;
+
 						filled++;
 
 						if(((double) filled / (height * width)) >= filling)
 							goto fill_out;
+					}
+					else {
+						color = 2;
+						matrix_set(colors, node.i, node.j, &color);
 					}
 				}
 			}
 		}
 	}
 fill_out:
-
-	fprintf(stdout, "components:\n");
-	for (i = 0; i < components->m; i++) {
-		for (j = 0; j < (components->n - 1); j++) {
-			comp_p = *((struct component **) matrix_get(components, i, j));
-
-			if(comp_p)
-				fprintf(stdout, "%2d, ", comp_p->component_id);
-			else
-				fprintf(stdout, "  , ");
-		}
-		comp_p = *((struct component **) matrix_get(components, i, j));
-
-		if(comp_p)
-			fprintf(stdout, "%2d\n", comp_p->component_id);
-		else
-			fprintf(stdout, "  \n");
-	}
-
-	fprintf(stdout, "pattern_size:\n");
-	for (i = 0; i < components->m; i++) {
-		for (j = 0; j < (components->n - 1); j++) {
-			comp_p = *((struct component **) matrix_get(components, i, j));
-
-			if(comp_p)
-				fprintf(stdout, "%2d, ", comp_p->size);
-			else
-				fprintf(stdout, "  , ");
-		}
-		comp_p = *((struct component **) matrix_get(components, i, j));
-
-		if(comp_p)
-			fprintf(stdout, "%2d\n", comp_p->size);
-		else
-			fprintf(stdout, "  \n");
-	}
-
-	fprintf(stdout, "values:\n");
 	for (i = 0; i < matrix->m; i++) {
 		for (j = 0; j < (matrix->n - 1); j++) {
-			fprintf(stderr, "%hhd, ", *((unsigned short int *)
+			fprintf(stderr, "%hhd, ", *((unsigned char *)
 						matrix_get(matrix, i, j)));
 		}
-		fprintf(stderr, "%hhd\n", *((unsigned short int *)
+		fprintf(stderr, "%hhd\n", *((unsigned char *)
 					matrix_get(matrix, i, j)));
 	}
 
 	fprintf(stdout, "filled: %lld; max: %ld; filling: %f; components: %d\n", filled,
 			height * width, ((double) filled) / (height * width), max_component);
 
+	fprintf(stdout, "\n");
+	for(i = 0; i < comp_list->elements; i++) {
+		comp_p = (struct component *) constvector_element(comp_list, i);
+//		comp_p = (struct component *) list_element(comp_list, i);
+		fprintf(stdout, "%u\n", comp_p->size);
+	}
+
 	matrix_destroy(matrix);
 	matrix_destroy(colors);
-	for (i = 0; i < components->m; i++) {
-		for (j = 0; j < (components->n - 1); j++) {
-			comp_p = *((struct component **) matrix_get(components, i, j));
-			if(comp_p)
-				free(comp_p);
-		}
-	}
 	matrix_destroy(components);
 	stack_destroy(to_be_visited);
+//	queue_destroy(to_be_visited);
+	constvector_destroy(comp_list);
+//	list_destroy(comp_list);
 
 	return 0;
+err_push_tbv:
+err_append_cl:
+	constvector_destroy(comp_list);
+//	list_destroy(comp_list);
+err_list_cl:
+	stack_destroy(to_be_visited);
+//	queue_destroy(to_be_visited);
+err_stack_tbv:
+	matrix_destroy(components);
+err_matrix_components:
+	matrix_destroy(colors);
+err_matrix_colors:
+	matrix_destroy(matrix);
+err_matrix_matrix:
+	return rc;
 }

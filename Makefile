@@ -2,7 +2,7 @@ TARGETS = pixelpattern mpi_test find_components
 
 CC	= /usr/local/bin/mpicc
 CCFLAGS	= -Wall --std=c99 -ggdb -pthread
-# CCFLAGS	= -Wall -pthread -O2 -pipe -fomit-frame-pointer
+# CCFLAGS	= -Wall --std=c99 -pthread -O2 -pipe -fomit-frame-pointer
 LDFLAGS	= -lm -lhelper
 DIRS	= helper
 LIBS	=

@@ -46,9 +46,16 @@ static int	mpi_working_function		(MPI_Comm *comm,
 int
 main(int argc, char ** argv)
 {
-	int i,j, rc;
+	int i, j, k, rc;
 	unsigned char val;
+	unsigned int *cid;
+
 	matrix_type *matrix;
+	matrix_type *border;
+	vector_type *borders;
+
+	struct component *comp_p;
+	struct component_list *components;
 
 	if(argc < 2) {
 		fprintf(stderr, "To few arguments given.\n\n%s\n",
@@ -79,10 +86,60 @@ main(int argc, char ** argv)
 			fprintf(stdout, "  \n");
 	}
 
-	rc = find_components(matrix);
+	rc = find_components(matrix, &components, &borders);
+	if(rc) {
+		fprintf(stderr, "find_components failed.. %s\n", strerror(rc));
+		goto err_out;
+	}
 
+	fprintf(stdout, "components:\n");
+	for(i = 0; i < components->components->elements; i++) {
+		comp_p = (struct component *) vector_get_value(
+				components->components, i);
+		fprintf(stderr, "%u\n", comp_p->size);
+	}
+
+	fprintf(stdout, "\nborders:\n");
+	for(k = BORDER_MIN; k < BORDER_MAX; k++) {
+		border = vector_get_value(borders, k);
+		if(!border)
+			continue;
+
+		fprintf(stdout, "%s: \n", strborder(k));
+
+		switch(k) {
+		case BORDER_TOP:
+		case BORDER_BOTTOM:
+			for(j = 0, i = 0; j < border->n; j++) {
+				cid = (unsigned int *) matrix_get(border, i, j);
+				if(!cid)
+					fprintf(stdout, "  , ");
+				else
+					fprintf(stdout, "%2d, ", *cid);
+			}
+			break;
+		case BORDER_LEFT:
+		case BORDER_RIGHT:
+			for(j = 0, i = 0; i < border->m; i++) {
+				cid = (unsigned int *) matrix_get(border, i, j);
+				if(!cid)
+					fprintf(stdout, "  , ");
+				else
+					fprintf(stdout, "%2d, ", *cid);
+			}
+			break;
+		}
+
+		fprintf(stdout, "\n");
+	}
+
+	component_list_destroy(components);
 	matrix_destroy(matrix);
+	borders_destroy(borders);
 
+	return rc;
+err_out:
+	matrix_destroy(matrix);
 	return rc;
 }
 

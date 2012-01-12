@@ -12,18 +12,28 @@ struct list {
 	size_t element_size;
 };
 
-typedef struct list list_type;
+#ifndef LIST_TYPE
+#define LIST_TYPE
+	typedef struct list list_type;
+#endif
 
-int list_create(list_type ** list, size_t element_size);
+int list_create(list_type ** list, size_t element_size)
+	__attribute__((warn_unused_result));
 void list_destroy(list_type * list);
 
-int list_append(list_type * list, void * value);
-int list_prepend(list_type * list, void * value);
-int list_insert_at(list_type * list, unsigned int pos, void * value);
+int list_append(list_type * list, void * value)
+	__attribute__((warn_unused_result));
+int list_prepend(list_type * list, void * value)
+	__attribute__((warn_unused_result));
+int list_insert_at(list_type * list, unsigned int pos, void * value)
+	__attribute__((warn_unused_result));
 
-void * list_head(list_type *list);
-void * list_tail(list_type *list);
-void * list_element(list_type *list, unsigned int pos);
+void * list_head(list_type *list)
+	__attribute__((warn_unused_result));
+void * list_tail(list_type *list)
+	__attribute__((warn_unused_result));
+void * list_element(list_type *list, unsigned int pos)
+	__attribute__((warn_unused_result));
 
 int list_get_head(list_type *list, void * value);
 int list_get_tail(list_type *list, void * value);
