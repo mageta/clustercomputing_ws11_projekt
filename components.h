@@ -53,6 +53,76 @@ int find_components(matrix_type *mat, struct component_list **comp_list,
 		vector_type **borders)
 	__attribute__((warn_unused_result));
 
+/* on return the returned structs are as it follows:
+ *
+ * mat -> contains the input-matrix
+ *
+ * (*comp_list), is a (struct component_list *) which contains a vector_type
+ *	-> components, which contains all found components, ordered by their
+ *			component_id. The elements of components are of the
+ *			type (struct component)
+ *
+ * usage example:
+ *	int i;
+ *	struct component *comp_p;
+ *
+ *	fprintf(stdout, "components:\n");
+ *	for(i = 0; i < comp_list->components->elements; i++) {
+ *		comp_p = (struct component *) vector_get_value(
+ *				components->components, i);
+ *		fprintf(stderr, "%u\n", comp_p->size);
+ *	}
+ *
+ * (*borders), is a vector_type, which contains all 4 borders of the matrix
+ *	-> each elements is of the type matrix_type, and is a matrix with the
+ *		dimension of the corresponding matrix-border
+ *	-> each field in one border contains the component_id of the found
+ *		component, and 0 if no comp. was found. The fields are of the
+ *		type (unsigned int)
+ *	-> the borders in the vector are indexed by the enum-values of
+ *		(enum border_nr)
+ *
+ * usage example:
+ *	int k, i, j;
+ *	matrix_type *border;
+ *
+ *	for(k = BORDER_MIN; k < BORDER_MAX; k++) {
+ *		border = vector_get_value(borders, k);
+ *		if(!border) // strange
+ *			continue;
+ *
+ *		fprintf(stdout, "%s: \n", strborder(k));
+ *
+ *		switch(k) {
+ *		case BORDER_TOP:
+ *		case BORDER_BOTTOM:
+ *			for(j = 0, i = 0; j < border->n; j++) {
+ *				cid = (unsigned int *) matrix_get(border, i, j);
+ *				if(!cid)
+ *					fprintf(stdout, "  , ");
+ *				else
+ *					fprintf(stdout, "%2d, ", *cid);
+ *			}
+ *			break;
+ *		case BORDER_LEFT:
+ *		case BORDER_RIGHT:
+ *			for(j = 0, i = 0; i < border->m; i++) {
+ *				cid = (unsigned int *) matrix_get(border, i, j);
+ *				if(!cid)
+ *					fprintf(stdout, "  , ");
+ *				else
+ *					fprintf(stdout, "%2d, ", *cid);
+ *			}
+ *			break;
+ *		}
+ *	}
+ *
+ * (*borders) and (*comp_list) are unchanged if find_components returns
+ * something != 0
+ *
+ * both should be freed with either borders_destroy or component_list_destroy
+ */
+
 enum border_nr {
 	BORDER_MIN	= 0,
 	BORDER_LEFT	= 0,

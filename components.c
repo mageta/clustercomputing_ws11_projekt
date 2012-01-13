@@ -97,15 +97,16 @@ borders_destroy(vector_type *borders)
 static int
 borders_fill(vector_type *borders, matrix_graph_type *graph)
 {
-	int i, j;
+	int i, j, k;
 	struct graph_node *node;
 	matrix_type *border;
 
 	if(!borders || !graph || !graph->matrix)
 		return EINVAL;
 
-	for(j = 0; j < graph->matrix->n; j = (j + graph->matrix->n - 1)) {
-		if(j == 0)
+	for(j = 0, k = 0; j < graph->matrix->n && k < 2;
+			j = (j + graph->matrix->n - 1), k++) {
+		if(k == 0)
 			border = vector_get_value(borders, BORDER_LEFT);
 		else
 			border = vector_get_value(borders, BORDER_RIGHT);
@@ -127,8 +128,9 @@ borders_fill(vector_type *borders, matrix_graph_type *graph)
 		}
 	}
 
-	for(i = 0; i < graph->matrix->m; i = (i + graph->matrix->m - 1)) {
-		if(i == 0)
+	for(i = 0, k = 0; i < graph->matrix->m && k < 2;
+			i = (i + graph->matrix->m - 1), k++) {
+		if(k == 0)
 			border = vector_get_value(borders, BORDER_TOP);
 		else
 			border = vector_get_value(borders, BORDER_BOTTOM);

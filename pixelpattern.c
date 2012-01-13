@@ -57,7 +57,7 @@ main(int argc, char ** argv)
 	unsigned int failcount = 500,
 		     bulginess = 3,
 		     dist = 1;
-	double	     size = 0.5;
+	double	     size = 0.1;
 
 	if(argc < 3) {
 		fprintf(stderr, "To few arguments given.\n\n%s\n",

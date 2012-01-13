@@ -31,6 +31,16 @@ struct node {
 #define GRAPH_NEIGHBORS_RIGHT_ROW	0x6B
 #define GRAPH_NEIGHBORS_BOTTOM_ROW	0x1F
 
+#define GRAPH_NEIGHBORS_NONE		0x00
+
+#define GRAPH_NEIGHBORS_ONEROW_LEFT	0x10
+#define GRAPH_NEIGHBORS_ONEROW_RIGHT	0x08
+#define GRAPH_NEIGHBORS_ONEROW_CENTER	0x18
+
+#define GRAPH_NEIGHBORS_ONECOL_TOP	0x40
+#define GRAPH_NEIGHBORS_ONECOL_BOTTOM	0x02
+#define GRAPH_NEIGHBORS_ONECOL_CENTER	0x42
+
 static inline long
 has_node_neighbor(struct node *node, enum node_neighbor_position pos)
 {
@@ -150,37 +160,53 @@ matrix_graph_init(matrix_graph_type *matg, void * node_value)
 	NODE_WRITE_MEM(node, node_value, size); \
 }
 
-	/* top right corner */
-	INIT_NODE(0, 0, GRAPH_NEIGHBORS_TOP_RIGHT);
+	if(mat->m == 1 && mat->n == 1) { /* only on fieled */
+		INIT_NODE(0, 0, GRAPH_NEIGHBORS_NONE);
+	} else if(mat->m == 1) { /* only one row */
+		INIT_NODE(0, 0, GRAPH_NEIGHBORS_ONEROW_LEFT);
+		INIT_NODE(0, mat->n - 1, GRAPH_NEIGHBORS_ONEROW_RIGHT);
 
-	/* bottem right corner */
-	INIT_NODE(mat->m - 1, 0, GRAPH_NEIGHBORS_BOTTOM_RIGHT);
+		for(i = 0, j = 1; j < mat->n - 1; j++)
+			INIT_NODE(i, j, GRAPH_NEIGHBORS_ONEROW_CENTER);
+	} else if(mat->n == 1) { /* only one col */
+		INIT_NODE(0, 0, GRAPH_NEIGHBORS_ONECOL_TOP);
+		INIT_NODE(mat->m - 1, 0, GRAPH_NEIGHBORS_ONECOL_BOTTOM);
 
-	/* top left corner */
-	INIT_NODE(0, mat->n - 1, GRAPH_NEIGHBORS_TOP_LEFT);
+		for(i = 1, j = 0; i < mat->m - 1; i++)
+			INIT_NODE(i, j, GRAPH_NEIGHBORS_ONECOL_CENTER);
+	} else { /* most common case */
+		/* top right corner */
+		INIT_NODE(0, 0, GRAPH_NEIGHBORS_TOP_RIGHT);
 
-	/* bottom left corner */
-	INIT_NODE(mat->m - 1, mat->n - 1, GRAPH_NEIGHBORS_BOTTOM_LEFT);
+		/* bottem right corner */
+		INIT_NODE(mat->m - 1, 0, GRAPH_NEIGHBORS_BOTTOM_RIGHT);
 
-	/* top row */
-	for(i = 0, j = 1; j < mat->n - 1; j++)
-		INIT_NODE(i, j, GRAPH_NEIGHBORS_TOP_ROW);
+		/* top left corner */
+		INIT_NODE(0, mat->n - 1, GRAPH_NEIGHBORS_TOP_LEFT);
 
-	/* left row */
-	for(i = 1, j = 0; i < mat->m - 1; i++)
-		INIT_NODE(i, j, GRAPH_NEIGHBORS_LEFT_ROW);
+		/* bottom left corner */
+		INIT_NODE(mat->m - 1, mat->n - 1, GRAPH_NEIGHBORS_BOTTOM_LEFT);
 
-	/* right row */
-	for(i = 1, j = mat->n - 1; i < mat->m - 1; i++)
-		INIT_NODE(i, j, GRAPH_NEIGHBORS_RIGHT_ROW);
+		/* top row */
+		for(i = 0, j = 1; j < mat->n - 1; j++)
+			INIT_NODE(i, j, GRAPH_NEIGHBORS_TOP_ROW);
 
-	/* top row */
-	for(i = mat->m - 1, j = 1; j < mat->n - 1; j++)
-		INIT_NODE(i, j, GRAPH_NEIGHBORS_BOTTOM_ROW);
+		/* left row */
+		for(i = 1, j = 0; i < mat->m - 1; i++)
+			INIT_NODE(i, j, GRAPH_NEIGHBORS_LEFT_ROW);
 
-	for(i = 1; i < mat->m - 1; i++)
-		for(j = 1; j < mat->n - 1; j++)
-			INIT_NODE(i, j, GRAPH_NEIGHBORS_CENTER);
+		/* right row */
+		for(i = 1, j = mat->n - 1; i < mat->m - 1; i++)
+			INIT_NODE(i, j, GRAPH_NEIGHBORS_RIGHT_ROW);
+
+		/* top row */
+		for(i = mat->m - 1, j = 1; j < mat->n - 1; j++)
+			INIT_NODE(i, j, GRAPH_NEIGHBORS_BOTTOM_ROW);
+
+		for(i = 1; i < mat->m - 1; i++)
+			for(j = 1; j < mat->n - 1; j++)
+				INIT_NODE(i, j, GRAPH_NEIGHBORS_CENTER);
+	}
 
 #undef INIT_NODE
 

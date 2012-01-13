@@ -215,9 +215,9 @@ int vector_append_constvector(vector_type *vec, constvector_type *cvec)
 
 int vector_contains(vector_type *vec, void * value)
 {
-	int i;
+	unsigned int i;
 
-	if(!vec || !value)
+	if(!vec || !value || !vec->compare)
 		return 0;
 
 	for_all_vector_elements(vec, i) {
@@ -226,6 +226,34 @@ int vector_contains(vector_type *vec, void * value)
 			return 1;
 		}
 	}
+
+	return 0;
+}
+
+int vector_contains_sorted(vector_type *vec, void * value)
+{
+	int comp;
+	unsigned int min, max, mid;
+	char * current;
+
+	if(!vec || !value || !vec->compare || !vec->elements)
+		return 0;
+
+	min = 0;
+	max = vec->elements - 1;
+
+	do {
+		mid = (min + max) / 2;
+		current = ((char *) vec->values) + (mid * vec->element_size);
+
+		comp = vec->compare(value, current, vec->element_size);
+		if(comp == 0)
+			return 1;
+		else if(comp < 0)
+			max = mid - 1;
+		else
+			min = mid + 1;
+	} while (min <= max);
 
 	return 0;
 }
