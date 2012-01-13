@@ -39,14 +39,14 @@ static void list_element_destroy(struct list_element * le)
 	free(le);
 }
 
-int list_create(list_t ** l, size_t element_size)
+int list_create(list_type ** l, size_t element_size)
 {
-	list_t * list;
+	list_type * list;
 
 	if(!l || !element_size)
 		return EINVAL;
 
-	list = (list_t *) malloc(sizeof(*list));
+	list = (list_type *) malloc(sizeof(*list));
 	if(!list)
 		return ENOMEM;
 	memset(list, 0, sizeof(*list));
@@ -61,7 +61,7 @@ int list_create(list_t ** l, size_t element_size)
 	return 0;
 }
 
-void list_destroy(list_t * list)
+void list_destroy(list_type * list)
 {
 	struct list_element *le, *lep;
 
@@ -79,7 +79,7 @@ void list_destroy(list_t * list)
 	free(list);
 }
 
-int list_append(list_t * list, void * value)
+int list_append(list_type * list, void * value)
 {
 	struct list_element * le;
 
@@ -108,7 +108,7 @@ int list_append(list_t * list, void * value)
 	return 0;
 }
 
-int list_prepend(list_t * list, void * value)
+int list_prepend(list_type * list, void * value)
 {
 	struct list_element * le;
 
@@ -137,7 +137,7 @@ int list_prepend(list_t * list, void * value)
 	return 0;
 }
 
-int list_insert_at(list_t * list, unsigned int pos, void * value)
+int list_insert_at(list_type * list, unsigned int pos, void * value)
 {
 	struct list_element * le;
 	struct list_element * local_node;
@@ -184,7 +184,51 @@ int list_insert_at(list_t * list, unsigned int pos, void * value)
 	return 0;
 }
 
-int list_head(list_t *list, void * value) {
+void * list_head(list_type *list)
+{
+	if(!list || !list->head)
+		return NULL;
+
+	return list->head->value;
+}
+
+void * list_tail(list_type *list)
+{
+	if(!list || !list->tail)
+		return NULL;
+
+	return list->tail->value;
+}
+
+void * list_element(list_type *list, unsigned int pos)
+{
+	int i;
+	struct list_element *local_node;
+
+	if(!list)
+		return NULL;
+
+	if(pos == 0) /* the first */
+		return list_head(list);
+	else if((pos + 1) == list->elements) /* the last */
+		return list_tail(list);
+	else if(pos >= list->elements)
+		return NULL;
+
+	local_node = list->head;
+	for(i = 0; (i < pos) && local_node; i++) {
+		local_node = local_node->next;
+	}
+
+	/* it seems like someone manipulated the list */
+	if(!local_node || !local_node->value)
+		return NULL;
+
+	return local_node->value;
+}
+
+int list_get_head(list_type *list, void * value)
+{
 	if(!list || !value || !list->head)
 		return EINVAL;
 
@@ -196,7 +240,8 @@ int list_head(list_t *list, void * value) {
 	return 0;
 }
 
-int list_tail(list_t *list, void * value) {
+int list_get_tail(list_type *list, void * value)
+{
 	if(!list || !value || !list->tail)
 		return EINVAL;
 
@@ -208,7 +253,8 @@ int list_tail(list_t *list, void * value) {
 	return 0;
 }
 
-int list_get(list_t *list, unsigned int pos, void * value) {
+int list_get(list_type *list, unsigned int pos, void * value)
+{
 	int i;
 	struct list_element *local_node;
 
@@ -216,9 +262,9 @@ int list_get(list_t *list, unsigned int pos, void * value) {
 		return EINVAL;
 
 	if(pos == 0) /* before the first */
-		return list_head(list, value);
-	else if((pos + 1) == list->elements) /* after the last */
-		return list_tail(list, value);
+		return list_get_head(list, value);
+	else if((pos + 1) == list->elements) /* the last */
+		return list_get_tail(list, value);
 	else if(pos >= list->elements)
 		return EINVAL;
 
@@ -235,7 +281,8 @@ int list_get(list_t *list, unsigned int pos, void * value) {
 	return 0;
 }
 
-int list_remove_head(list_t *list) {
+int list_remove_head(list_type *list)
+{
 	struct list_element *le, *len;
 
 	if(!list || !list->head)
@@ -258,7 +305,8 @@ int list_remove_head(list_t *list) {
 	return 0;
 }
 
-int list_remove_tail(list_t *list) {
+int list_remove_tail(list_type *list)
+{
 	struct list_element *le, *lep;
 
 	if(!list || !list->tail)
@@ -282,7 +330,8 @@ int list_remove_tail(list_t *list) {
 
 }
 
-int list_remove(list_t *list, int pos) {
+int list_remove(list_type *list, int pos)
+{
 	struct list_element * local_node;
 	unsigned int i;
 

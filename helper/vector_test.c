@@ -1,47 +1,107 @@
-#include "vector.h"
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
+#include <errno.h>
+
+#include "vector.h"
+
+//#define TEST_NUMBERS 100
+//#define TEST_INT_FIRST 100
+
+#define TEST_NUMBERS	10
+#define TEST_INT_FIRST	10
 
 int
 main(int argc, char ** argv)
 {
-	vector_type *vec;
-
-	int test_data[] = {
-		63, 38, 61, 64, 24, 02, 46, 66, 55, 34, 25, 40, 45, 89, 29,
-		03, 75, 99, 33, 68, 41, 80, 22, 11, 97, 47, 67, 12, 68, 99,
-		79, 13, 43, 74, 56, 46, 51, 93, 84, 79, 84, 91, 71, 61, 82,
-		12, 56, 67, 53, 72, 49, 92, 94, 51, 65, 79, 48, 88, 05, 82,
-		69, 54, 70, 05, 38, 78, 75, 26, 58, 75, 61, 42, 69, 16, 39,
-		77, 38, 46, 96, 38, 55, 89, 13, 48, 66, 87, 62, 52, 81, 25,
-		43, 81, 64, 58, 46, 36, 77, 45, 16, 50
-	};
-	int test_size = 100;
 	int i, rc;
+	int numbers[TEST_NUMBERS], number;
+	vector_type * test_vector;
 
-	rc = vector_create(&vec, 0, sizeof(int));
+	srand(time(NULL));
 
-	if(rc || !vec) {
-		fprintf(stderr, "create failed: %s\n", strerror(rc));
-		return -1;
+	for (i = 0; i < TEST_NUMBERS; i++) {
+		numbers[i] = rand() % (TEST_NUMBERS * 10) + 1;
 	}
 
-	for (i = 0; i < test_size; i++) {
-		rc = vector_add_value(vec, &test_data[i]);
+	fprintf(stdout, "[create]\n");
+	rc = vector_create(&test_vector, 0, sizeof(*numbers));
+	if(rc) {
+		fprintf(stderr, "could not create the vector.. %s\n",
+				strerror(rc));
+		return rc;
+	}
+
+	fprintf(stdout, "[add]\n");
+	for (i = 0; i < TEST_INT_FIRST; i++) {
+		rc = vector_add_value(test_vector, &numbers[i]);
 		if(rc) {
-			fprintf(stderr, "add failed: %s\n", strerror(rc));
-			return -1;
-		}
-
-		if(vec->elements != (i + 1)) {
-			fprintf(stderr, "sice doesn't match\n");
-			return -1;
+			fprintf(stderr, "could not append to the vector.. %s\n",
+					strerror(rc));
+			goto err_free_vector;
 		}
 	}
 
-	vector_destroy(vec);
+	fprintf(stdout, "[values]\n");
+	for (i = 0; i < TEST_INT_FIRST; i++) {
+		rc = vector_copy_value(test_vector, i, &number);
+		if(rc) {
+			fprintf(stderr, "vector_copy_value failed.. %s\n",
+					strerror(rc));
+			goto err_free_vector;
+		}
+
+		if(number != numbers[i]) {
+			fprintf(stderr, "vector_get supplied a wrong value\n");
+			goto err_free_vector;
+		}
+	}
+
+	fprintf(stdout, "[del]\n");
+	for(i = 0; i < TEST_INT_FIRST; i++) {
+		rc = vector_del_value(test_vector, 0);
+		if(rc) {
+			fprintf(stderr, "vector_del_value failed.. %s\n",
+					strerror(rc));
+			goto err_free_vector;
+		}
+	}
+
+	if(test_vector->elements != 0) {
+		fprintf(stderr, "number of elements doesn't count up\n");
+		goto err_free_vector;
+	}
+
+	fprintf(stdout, "[add]\n");
+	for (i = 0; i < TEST_INT_FIRST; i++) {
+		rc = vector_add_value(test_vector, &i);
+		if(rc) {
+			fprintf(stderr, "could not append to the vector.. %s\n",
+					strerror(rc));
+			goto err_free_vector;
+		}
+	}
+
+	fprintf(stdout, "[containes sorted]\n");
+	for (i = 0; i < TEST_INT_FIRST; i++) {
+		rc = vector_contains_sorted(test_vector, &i);
+		if(!rc) {
+			fprintf(stderr, "contain_sorted failed\n");
+			goto err_free_vector;
+		}
+	}
+
+	for (i = 0; i < TEST_INT_FIRST; i++) {
+		number = *((int *) vector_get_value(test_vector, i));
+		fprintf(stderr, "%d, ", number);
+	}
+	fprintf(stderr, "\n", number);
+
+	vector_destroy(test_vector);
 
 	return 0;
+err_free_vector:
+	vector_destroy(test_vector);
+	return (rc ? rc : -1);
 }

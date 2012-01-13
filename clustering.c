@@ -1,14 +1,17 @@
 #define _GNU_SOURCE
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-// #include <malloc.h>
-#include "mpi.h"
 #include <errno.h>
 #include <limits.h>
+#include <ctype.h>
 
+#include "mpi.h"
 #include "matrix.h"
 #include "queue.h"
+#include "vector.h"
+#include "components.h"
 
 #include <asm/errno.h>
 
@@ -18,7 +21,7 @@ const int N = 19;
 const int M = 8;
 
 static char * usage() {
-	static char text[256];	
+	static char text[256];
 	int written;
 	char *textp = text;
 
@@ -77,7 +80,7 @@ static int read_input_file(matrix_type **m, char *file_name){
 	matrix_type *matrix;
 	queue_type *lines;
 
-	if(queue_create(&lines, 0, sizeof(line))) {
+	if(queue_create(&lines, sizeof(line))) {
 		fprintf(stderr, "Not enough memory.\n");
 		goto err_out;
 	}
@@ -121,7 +124,7 @@ static int read_input_file(matrix_type **m, char *file_name){
 
 	rc = matrix_create(&matrix, height, width, sizeof(unsigned short int));
 	if(rc) {
-		fprintf(stderr, "Could not create a matrix.. %s\n", 
+		fprintf(stderr, "Could not create a matrix.. %s\n",
 				strerror(rc));
 		goto err_free_queue;
 	}
@@ -175,7 +178,7 @@ err_out:
 int main(int argc, char *argv[]) {
 	int rank;	// rank of the process
 	int p;		// number of process
-	int source; 
+	int source;
 	int dest;
 	int tag;
 	int sum = 0;
@@ -229,7 +232,7 @@ int main(int argc, char *argv[]) {
 		for( dest = 1; dest < p; dest++) {
 			printf("rank=%i: Sending matrix to rank=%i\n", rank, dest);
 			MPI_Send(matrix_to_transfer, 1, mpi_matrix_type, dest, tag, MPI_COMM_WORLD);
-		}	
+		}
 	} else { // anything but master
 		tag = 0;
 		source = 0; // from master
@@ -242,14 +245,14 @@ int main(int argc, char *argv[]) {
 	 *	basic communication in-between the nodes
 	 */
 
-	// all nodes except the last one send their column to the next one 
-	if (rank < p - 1) { 
+	// all nodes except the last one send their column to the next one
+	if (rank < p - 1) {
 		column = rank;
 		dest = rank + 1;
 		MPI_Send(&column, 1, MPI_INT, dest, 5, MPI_COMM_WORLD);
 		printf("rank=%i: column has been sent to rank=%i\n", rank, dest );
 	}
-	
+
 	// all nodes except the first one are receiving the column of the previous one
 	if (rank > 0) {
 		source = rank - 1;
@@ -258,27 +261,27 @@ int main(int argc, char *argv[]) {
 	}
 
 	/**
-	 *	calculation	
+	 *	calculation
 	 */
 	int number_of_ranges = N / p; // in how many ranges the matrix will be devided
 	int last_range = 0;
-	int from = rank * number_of_ranges; // beginning of the range 
+	int from = rank * number_of_ranges; // beginning of the range
 	int to = from + p; // end of the range
 
 	// if N divided by p equals an odd number, the range of the last node
-	// will be expanded to N	
+	// will be expanded to N
 	if (N % p != 0) {
 		last_range = N - (number_of_ranges * p);
 	}
 	if ( rank == p - 1) { // last node
-		to = to + last_range;		
+		to = to + last_range;
 	}
 
 	int* cols = extract_col(matrix_to_transfer, from, to);
 	printf("rank=%i is now printing his columns from %i tp %i\n",rank, from, to);
 	printcolumns(cols, to-from);
 
-		
+
 	matrix_destroy(matrix);
 	free(matrix_to_transfer);
 	MPI_Type_free(&mpi_matrix_type);

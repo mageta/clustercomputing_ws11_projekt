@@ -6,28 +6,27 @@
 
 #include "list.h"
 
-//#define TEST_NUMBERS 100
-//#define TEST_INT_FIRST 25
-//#define TEST_INT_SECOND 50
-//#define TEST_INT_THIRD 75
+#define TEST_NUMBERS 100
+#define TEST_INT_FIRST 25
+#define TEST_INT_SECOND 50
+#define TEST_INT_THIRD 75
 
-#define TEST_NUMBERS 6
-#define TEST_INT_FIRST 2
-#define TEST_INT_SECOND 4
-#define TEST_INT_THIRD 6
+//#define TEST_NUMBERS 6
+//#define TEST_INT_FIRST 2
+//#define TEST_INT_SECOND 4
+//#define TEST_INT_THIRD 6
 
 int
 main(int argc, char ** argv)
 {
 	int i, rc;
 	int numbers[TEST_NUMBERS], number;
-	list_t * test_list;
+	list_type * test_list;
 
 	srand(time(NULL));
 
 	for (i = 0; i < TEST_NUMBERS; i++) {
-//		numbers[i] = rand() % (TEST_NUMBERS * 10) + 1;
-		numbers[i] = i;
+		numbers[i] = rand() % (TEST_NUMBERS * 10) + 1;
 	}
 
 	rc = list_create(&test_list, sizeof(*numbers));
