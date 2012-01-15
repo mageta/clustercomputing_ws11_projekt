@@ -8,6 +8,102 @@
 
 #include "list.h"
 #include "constvector.h"
+#include "algorithm.h"
+
+#define CHARP(vec) ((char *) vec->values)
+#define NELEMENTS(n, vec) ((n) * (vec)->element_size)
+
+static int __vector_increase(vector_type *vec, size_t inc)
+{
+	char * new_values;
+	int old_len = vec->len;
+	int new_len = old_len + inc;
+
+	if(new_len < 1)
+		new_len = 1;
+
+	new_values = realloc(vec->values, new_len * vec->element_size);
+	if(!new_values)
+		return ENOMEM;
+
+	vec->len = new_len;
+	vec->values = (void *) new_values;
+
+	memset(new_values + (old_len * vec->element_size), 0,
+			(new_len * vec->element_size) -
+			(old_len * vec->element_size));
+
+	return 0;
+}
+
+static int __append_checks(vector_type *vec, size_t src_size)
+{
+	int rc = 0;
+
+	if(!vec)
+		return EINVAL;
+
+	if(!vec->values && (vec->len > 0))
+		return EFAULT;
+
+	if((vec->elements + src_size) > vec->len) {
+		/*
+		 * TODO: think about a better strategy to increase
+		 * the mem in this case
+		 */
+		rc = __vector_increase(vec, src_size);
+		if(rc)
+			return rc;
+	}
+
+	return 0;
+}
+
+#define __append_template(dest, src, __get__) \
+	int rc = 0, i; \
+	void *value; \
+	\
+	if(!(src)) \
+		return EINVAL; \
+	\
+	rc = __append_checks((dest), (src)->elements); \
+	if(rc) \
+		return rc; \
+	\
+	for(i = 0; i < (src)->elements; i++) { \
+		value = __get__((src), i); \
+		if(!value) \
+			return EFAULT; \
+		\
+		vector_set_value((dest), (dest)->elements, value); \
+		(dest)->elements++; \
+	} \
+	\
+	return 0;
+
+
+static int __pre_add_checks(vector_type *vec, void * value)
+{
+	int rc = 0;
+
+	if(!vec || !value)
+		return EINVAL;
+
+	if(!vec->values && (vec->len > 0))
+		return EFAULT;
+
+	if(vec->elements >= vec->len) {
+		rc = __vector_increase(vec, vec->len);
+		if(rc)
+			return rc;
+	}
+
+	return 0;
+}
+
+/************************************************
+ *      public interface implementations        *
+ ************************************************/
 
 int vector_create(vector_type ** v, size_t len, size_t element_size)
 {
@@ -79,49 +175,83 @@ int vector_copy_value(vector_type *vec, unsigned int i, void * value)
 	return 0;
 }
 
-static int __vector_increase(vector_type *vec, size_t inc)
-{
-	char * new_values;
-	int old_len = vec->len;
-	int new_len = old_len + inc;
-
-	if(new_len < 1)
-		new_len = 1;
-
-	new_values = realloc(vec->values, new_len * vec->element_size);
-	if(!new_values)
-		return ENOMEM;
-
-	vec->len = new_len;
-	vec->values = (void *) new_values;
-
-	memset(new_values + (old_len * vec->element_size), 0,
-			(new_len * vec->element_size) -
-			(old_len * vec->element_size));
-
-	return 0;
-}
-
 int vector_add_value(vector_type *vec, void * value)
 {
-	int rc = 0;
+	int rc = __pre_add_checks(vec, value);
 
-	if(!vec || !value)
-		return EINVAL;
-
-	if(!vec->values && (vec->len > 0))
-		return EFAULT;
-
-	if(vec->elements >= vec->len) {
-		rc = __vector_increase(vec, vec->len);
-		if(rc)
-			return rc;
-	}
+	if(rc)
+		return rc;
 
 	vector_set_value(vec, vec->elements, value);
 	vec->elements++;
 
 	return 0;
+}
+
+int vector_insert(vector_type *vec, unsigned int i, void * value)
+{
+	int rc;
+
+	if(!vec || (i > vec->elements))
+		return EINVAL;
+
+	rc = __pre_add_checks(vec, value);
+	if(rc)
+		return rc;
+
+	memmove(CHARP(vec) + NELEMENTS(i + 1, vec),
+			CHARP(vec) + NELEMENTS(i, vec),
+			NELEMENTS(vec->elements - i, vec));
+
+	vector_set_value(vec, i, value);
+	vec->elements++;
+
+	return 0;
+}
+
+int vector_insert_sorted(vector_type *vec, void * value)
+{
+	int rc;
+
+	int pos, comp;
+	void * current;
+	unsigned int min, max, mid;
+
+	rc = __pre_add_checks(vec, value);
+	if(rc)
+		return rc;
+
+	if(!vec->compare)
+		return EINVAL;
+
+	if(vec->elements == 0)
+		return vector_insert(vec, 0, value);
+
+	min = 0;
+	max = vec->elements - 1;
+
+	do {
+		mid = (min + max) / 2;
+		current = CHARP(vec) + NELEMENTS(mid, vec);
+
+		comp = vec->compare(value, current, vec->element_size);
+		if(comp == 0)
+			break;
+		else if(comp < 0) {
+			if((int) (mid - 1) < 0)
+				break;
+			max = mid - 1;
+		}
+		else
+			min = mid + 1;
+	} while (min <= max);
+
+	if(comp > 0)
+		pos = mid + 1;
+	else
+		pos = mid;
+
+	return vector_insert(vec, pos, value);
 }
 
 int vector_del_value(vector_type *vec, unsigned int i)
@@ -142,75 +272,19 @@ int vector_del_value(vector_type *vec, unsigned int i)
 	return 0;
 }
 
-int __append_checks(vector_type *vec, size_t src_size)
-{
-	int rc = 0;
-
-	if(!vec)
-		return EINVAL;
-
-	if(!vec->values && (vec->len > 0))
-		return EFAULT;
-
-	if((vec->elements + src_size) > vec->len) {
-		/*
-		 * TODO: think about a better strategy to increase
-		 * the mem in this case
-		 */
-		rc = __vector_increase(vec, src_size);
-		if(rc)
-			return rc;
-	}
-
-	return 0;
-}
-
 int vector_append_list(vector_type *vec, list_type *list)
 {
-	int rc = 0, i;
-	void *value;
-
-	if(!list)
-		return EINVAL;
-
-	rc = __append_checks(vec, list->elements);
-	if(rc)
-		return rc;
-
-	for(i = 0; i < list->elements; i++) {
-		value = list_element(list, i);
-		if(!value)
-			return EFAULT;
-
-		vector_set_value(vec, vec->elements, value);
-		vec->elements++;
-	}
-
-	return 0;
+	__append_template(vec, list, list_element);
 }
 
 int vector_append_constvector(vector_type *vec, constvector_type *cvec)
 {
-	int rc = 0, i;
-	void *value;
+	__append_template(vec, cvec, constvector_element);
+}
 
-	if(!cvec)
-		return EINVAL;
-
-	rc = __append_checks(vec, cvec->elements);
-	if(rc)
-		return rc;
-
-	for(i = 0; i < cvec->elements; i++) {
-		value = constvector_element(cvec, i);
-		if(!value)
-			return EFAULT;
-
-		vector_set_value(vec, vec->elements, value);
-		vec->elements++;
-	}
-
-	return 0;
+int vector_append_vector(vector_type *dest, vector_type *src)
+{
+	__append_template(dest, src, vector_get_value);
 }
 
 int vector_contains(vector_type *vec, void * value)
@@ -230,30 +304,32 @@ int vector_contains(vector_type *vec, void * value)
 	return 0;
 }
 
-int vector_contains_sorted(vector_type *vec, void * value)
+int vector_is_sorted(vector_type *vec)
 {
+	void * max, *cur;
+	unsigned int i;
 	int comp;
-	unsigned int min, max, mid;
-	char * current;
 
-	if(!vec || !value || !vec->compare || !vec->elements)
+	if(!vec || !vec->compare)
 		return 0;
 
-	min = 0;
-	max = vec->elements - 1;
+	if(vec->elements < 1)
+		return 1;
 
-	do {
-		mid = (min + max) / 2;
-		current = ((char *) vec->values) + (mid * vec->element_size);
+	max = vector_get_value(vec, 0);
 
-		comp = vec->compare(value, current, vec->element_size);
-		if(comp == 0)
-			return 1;
+	for (i = 1; i < vec->elements; i++) {
+		cur = vector_get_value(vec, i);
+		comp = vec->compare(cur, max, vec->element_size);
+
+		if(comp > 0)
+			max = cur;
 		else if(comp < 0)
-			max = mid - 1;
-		else
-			min = mid + 1;
-	} while (min <= max);
+			return 0;
+	}
 
-	return 0;
+	return 1;
 }
+
+#undef __append_template
+#undef CHARP

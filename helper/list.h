@@ -10,6 +10,8 @@ struct list {
 
 	size_t elements;
 	size_t element_size;
+
+	int (* compare)(const void * lh, const void * rh, size_t element_size);
 };
 
 #ifndef LIST_TYPE
@@ -28,6 +30,9 @@ int list_prepend(list_type * list, void * value)
 int list_insert_at(list_type * list, unsigned int pos, void * value)
 	__attribute__((warn_unused_result));
 
+int list_insert_sorted(list_type * list, void * value)
+	__attribute__((warn_unused_result));
+
 void * list_head(list_type *list)
 	__attribute__((warn_unused_result));
 void * list_tail(list_type *list)
@@ -42,6 +47,9 @@ int list_get(list_type *list, unsigned int pos, void * value);
 int list_remove_head(list_type *list);
 int list_remove_tail(list_type *list);
 int list_remove(list_type *list, int pos);
+
+int list_is_sorted(list_type *list)
+	__attribute__((warn_unused_result));
 
 #define for_each_list_element(list, i) \
 	for((i) = 0; (i) < (list)->elements; (i)++)

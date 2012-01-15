@@ -55,6 +55,7 @@ int list_create(list_type ** l, size_t element_size)
 	list->tail = NULL;
 	list->elements = 0;
 	list->element_size = element_size;
+	list->compare = memcmp;
 
 	*l = list;
 
@@ -146,7 +147,7 @@ int list_insert_at(list_type * list, unsigned int pos, void * value)
 	if(!list || !value)
 		return EINVAL;
 
-	if((pos + 1) > list->elements)
+	if(pos > list->elements)
 		return EINVAL;
 
 	if(pos == 0) /* before the first */
@@ -182,6 +183,46 @@ int list_insert_at(list_type * list, unsigned int pos, void * value)
 	list->elements++;
 
 	return 0;
+}
+
+int list_insert_sorted(list_type * list, void * value)
+{
+	int pos, comp;
+	void * current;
+	unsigned int min, max, mid;
+
+	if(!list || !value || !list->compare)
+		return EINVAL;
+
+	if(list->elements == 0)
+		return list_append(list, value);
+
+	min = 0;
+	max = list->elements - 1;
+
+	do {
+		mid = (min + max) / 2;
+		/* TODO: this is very inefficient */
+		current = (char *) list_element(list, mid);
+
+		comp = list->compare(value, current, list->element_size);
+		if(comp == 0)
+			break;
+		else if(comp < 0) {
+			if((int) (mid - 1) < 0)
+				break;
+			max = mid - 1;
+		}
+		else
+			min = mid + 1;
+	} while (min <= max);
+
+	if(comp > 0)
+		pos = mid + 1;
+	else
+		pos = mid;
+
+	return list_insert_at(list, pos, value);
 }
 
 void * list_head(list_type *list)
@@ -338,12 +379,12 @@ int list_remove(list_type *list, int pos)
 	if(!list || !list->head)
 		return EINVAL;
 
-	if((pos + 1) > list->elements)
+	if(pos >= list->elements)
 		return EINVAL;
 
 	if(pos == 0) /* before the first */
 		return list_remove_head(list);
-	else if(pos == list->elements) /* after the last */
+	else if((pos + 1) == list->elements) /* after the last */
 		return list_remove_tail(list);
 
 	local_node = list->head;
@@ -361,4 +402,32 @@ int list_remove(list_type *list, int pos)
 	list->elements--;
 
 	return 0;
+}
+
+int list_is_sorted(list_type *list)
+{
+	void * max, *cur;
+	unsigned int i;
+	int comp;
+
+	if(!list || !list->compare)
+		return 0;
+
+	if(list->elements < 1)
+		return 1;
+
+	/* TODO: this is very inefficient */
+	max = list_element(list, 0);
+
+	for (i = 1; i < list->elements; i++) {
+		cur = list_element(list, i);
+		comp = list->compare(cur, max, list->element_size);
+
+		if(comp > 0)
+			max = cur;
+		else if(comp < 0)
+			return 0;
+	}
+
+	return 1;
 }
