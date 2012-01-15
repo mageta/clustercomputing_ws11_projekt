@@ -21,6 +21,7 @@
 #define MPI_TAG_BASE		0
 #define MPI_TAG_MATRIX_DIMS	MPI_TAG_BASE + 1
 #define MPI_TAG_MATRIX		MPI_TAG_MATRIX_DIMS + 1
+#define MPI_TAG_BORDER		MPI_TAG_MATRIX + 1
 
 static char * usage() {
 	static char text[256];
@@ -183,6 +184,7 @@ int main(int argc, char *argv[]) {
 	MPI_Status status;
 	MPI_Datatype mpi_matrix_type;
 	MPI_Datatype mpi_matrix_dims_type;
+	MPI_Datatype mpi_border_type;
 
 	int column;
 	unsigned int matrix_dims[2];
@@ -195,6 +197,14 @@ int main(int argc, char *argv[]) {
 
 	int i,j;
 	matrix_type *input_matrix;
+
+	// find_components
+	struct component_list *components;
+	vector_type *borders;
+	matrix_type *border;
+	unsigned int *cid;
+
+
 
 	if(p < 2) {
 		printf("you should definitely start that program with more than 1 processes\n");
@@ -250,27 +260,8 @@ int main(int argc, char *argv[]) {
 		printf("rank=%i: matrix received\n", rank);
 	}
 
-	printf("input_matrix: \n");
-	print_inputmat(input_matrix);
-
-	/**
-	 *	basic communication in-between the nodes
-	 */
-
-	// all nodes except the last one send their column to the next one
-	if (rank < p - 1) {
-		column = rank;
-		dest = rank + 1;
-		MPI_Send(&column, 1, MPI_INT, dest, 5, MPI_COMM_WORLD);
-		printf("rank=%i: column has been sent to rank=%i\n", rank, dest );
-	}
-
-	// all nodes except the first one are receiving the column of the previous one
-	if (rank > 0) {
-		source = rank - 1;
-		MPI_Recv(&column, 1, MPI_INT, source, 5, MPI_COMM_WORLD, &status);
-		printf("rank=%i: column has been received from rank=%i\n", rank, source);
-	}
+	// printf("input_matrix: \n");
+	// print_inputmat(input_matrix);
 
 	/**
 	 *	calculation
@@ -300,9 +291,52 @@ int main(int argc, char *argv[]) {
 		for(int col = from, j = 0; col < (to + 1); col++, j++)
 			matrix_set(working_matrix, i, j, matrix_get(input_matrix, row, col));
 
-	printf("rank=%i is now printing his columns from %i tp %i\n", rank, from, to);
-	print_workingmat(working_matrix);
+	// printf("rank=%i is now printing his columns from %i tp %i\n", rank, from, to);
+	// print_workingmat(working_matrix);
 
+	/**
+	 * finding components
+	 */
+	rc = find_components(working_matrix, &components, &borders);
+	if(rc) {
+		fprintf(stderr, "find_components failed.. %s\n", strerror(rc));
+		goto err_out;
+	}
+	printf("number of components: %i\n",components->components->elements);
+
+	// the right border is the one to be sent to the next node
+	border = vector_get_value(borders, BORDER_RIGHT);
+	/**
+	 * communication in-between the nodes
+	 */
+
+	/* new datatype for border, has just 1 row */
+	MPI_Type_vector(border->m, border->n, border->n, MPI_UNSIGNED_CHAR, &mpi_border_type);
+	MPI_Type_commit(&mpi_border_type);
+
+	// all nodes except the last one send their reight border to the right neighbour
+	if (rank < p - 1) {
+		column = rank;
+		dest = rank + 1;
+		MPI_Send(&border, 1, mpi_border_type, dest, MPI_TAG_BORDER, MPI_COMM_WORLD);
+		printf("border transfer: %i -> %i\n", rank, dest );
+	}
+
+	// all nodes except the first one are receiving the right border from the left neighbour
+	if (rank > 0) {
+		source = rank - 1;
+		MPI_Recv(&border, 1, mpi_border_type, source, MPI_TAG_BORDER, MPI_COMM_WORLD, &status);
+		printf("border transfer: %i <- %i\n\n", rank, source);
+		printf("%2d\n", matrix_get(&border, 1, 1));
+		// ? ist das so richtig? ich moechte hier an besten die uebertragene border ausgeben
+	}
+
+
+
+
+
+	// borders_destroy(borders);
+	component_list_destroy(components);
 	matrix_destroy(working_matrix);
 	matrix_destroy(input_matrix);
 	MPI_Type_free(&mpi_matrix_type);
