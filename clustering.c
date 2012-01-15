@@ -203,6 +203,11 @@ int main(int argc, char *argv[]) {
 	vector_type *borders;
 	matrix_type *border;
 	unsigned int *cid;
+	unsigned int *mid;
+	unsigned int *cid_prev;
+	unsigned int *mid_prev;
+	unsigned int *cid_next;
+	unsigned int *mid_next;
 
 
 
@@ -269,7 +274,7 @@ int main(int argc, char *argv[]) {
 	int number_of_ranges = input_matrix->n / p; // in how many ranges the matrix will be devided
 	int last_range = 0;
 	int from = rank * number_of_ranges; // beginning of the range
-	int to = from + p; // end of the range
+	int to = from + number_of_ranges; // end of the range
 
 	// if N divided by p equals an odd number, the range of the last node
 	// will be expanded to N
@@ -282,13 +287,13 @@ int main(int argc, char *argv[]) {
 
 	matrix_type * working_matrix;
 
-	rc = matrix_create(&working_matrix, input_matrix->m, to - from + 1, sizeof(TYPE_WOKRING_MATRIX));
+	rc = matrix_create(&working_matrix, input_matrix->m, to - from, sizeof(TYPE_WOKRING_MATRIX));
 	if(rc)
 		goto err_out;
 
 	/* copy the selcted columns into the working matrix */
 	for(int row = 0, i = 0; row < input_matrix->m; row++, i++)
-		for(int col = from, j = 0; col < (to + 1); col++, j++)
+		for(int col = from, j = 0; col < (to); col++, j++)
 			matrix_set(working_matrix, i, j, matrix_get(input_matrix, row, col));
 
 	// printf("rank=%i is now printing his columns from %i tp %i\n", rank, from, to);
@@ -314,22 +319,50 @@ int main(int argc, char *argv[]) {
 	MPI_Type_vector(border->m, border->n, border->n, MPI_UNSIGNED_CHAR, &mpi_border_type);
 	MPI_Type_commit(&mpi_border_type);
 
-	// all nodes except the last one send their reight border to the right neighbour
-	if (rank < p - 1) {
-		column = rank;
-		dest = rank + 1;
-		MPI_Send(&border, 1, mpi_border_type, dest, MPI_TAG_BORDER, MPI_COMM_WORLD);
-		printf("border transfer: %i -> %i\n", rank, dest );
-	}
-
 	// all nodes except the first one are receiving the right border from the left neighbour
 	if (rank > 0) {
 		source = rank - 1;
-		MPI_Recv(&border, 1, mpi_border_type, source, MPI_TAG_BORDER, MPI_COMM_WORLD, &status);
-		printf("border transfer: %i <- %i\n\n", rank, source);
-		printf("%2d\n", matrix_get(&border, 1, 1));
-		// ? ist das so richtig? ich moechte hier an besten die uebertragene border ausgeben
+		MPI_Recv(border->matrix, 1, mpi_border_type, source, MPI_TAG_BORDER, MPI_COMM_WORLD, &status);
+		printf("border transfer: %i <- %i\n", rank, source);
+		printf("border matches (current rank=%i):\nNr: recv- own value\n",rank);
+		for(i = 0; i < border->m; i++) {
+			cid = *((unsigned int *) matrix_get(border,i, 0));
+			mid = *((unsigned char *) matrix_get(working_matrix, i, 0));
+			if(i > 0) {
+				cid_prev = *((unsigned char *) matrix_get(border,i - 1, 0));
+				mid_prev = *((unsigned char *) matrix_get(working_matrix, i - 1, 0));
+			}
+			if(i < (border->m)-1) {
+				cid_next = *((unsigned char *) matrix_get(border,i + 1, 0));
+				mid_next = *((unsigned char *) matrix_get(working_matrix, i + 1, 0));
+			}
+
+			if(!cid)
+				fprintf(stdout, " %i:  0  - %2d\n",i, mid);
+			else {
+				fprintf(stdout, " %i: %2d  - %2d",i,cid, mid);
+				if ((mid != 0)) {
+					// matching process goes here ...
+					printf(" x\n");									
+				} else 
+					printf("\n");
+			}
+		}
+		printf("\n");
+		// print_workingmat(working_matrix);
+
+
+
 	}
+
+	// all nodes except the last one send their right border to the right neighbour
+	if (rank < p - 1) {
+		dest = rank + 1;
+		MPI_Send(border->matrix, 1, mpi_border_type, dest, MPI_TAG_BORDER, MPI_COMM_WORLD);
+		printf("border transfer: %i -> %i\n", rank, dest );
+	}
+
+
 
 
 
