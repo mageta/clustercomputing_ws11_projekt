@@ -4,10 +4,9 @@
 # valgrind --tool=exp-sgcheck $* &> mpi_output.${LAMRANK}
 
 if [[ "$LAMRANK" == "0" ]]; then
-ddd $* &> mpi_output.${LAMRANK}
-# valgrind $* &> mpi_output.${LAMRANK}
+	ddd $* &> mpi_output.${LAMRANK}
 else
-$* &> mpi_output.${LAMRANK}
+	$* &> mpi_output.${LAMRANK}
 fi
 
 exit 0

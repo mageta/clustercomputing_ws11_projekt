@@ -209,7 +209,7 @@ int vector_insert(vector_type *vec, unsigned int i, void * value)
 	return 0;
 }
 
-int vector_insert_sorted(vector_type *vec, void * value)
+int vector_insert_sorted(vector_type *vec, void * value, int allow_doubles)
 {
 	int rc;
 
@@ -234,10 +234,12 @@ int vector_insert_sorted(vector_type *vec, void * value)
 		mid = (min + max) / 2;
 		current = CHARP(vec) + NELEMENTS(mid, vec);
 
-		comp = vec->compare(value, current, vec->element_size);
-		if(comp == 0)
+		comp = vec->compare(current, value, vec->element_size);
+		if(comp == 0) {
+			if(!allow_doubles)
+				return 0;
 			break;
-		else if(comp < 0) {
+		} else if(comp > 0) {
 			if((int) (mid - 1) < 0)
 				break;
 			max = mid - 1;
@@ -246,7 +248,7 @@ int vector_insert_sorted(vector_type *vec, void * value)
 			min = mid + 1;
 	} while (min <= max);
 
-	if(comp > 0)
+	if(comp < 0)
 		pos = mid + 1;
 	else
 		pos = mid;
@@ -320,11 +322,11 @@ int vector_is_sorted(vector_type *vec)
 
 	for (i = 1; i < vec->elements; i++) {
 		cur = vector_get_value(vec, i);
-		comp = vec->compare(cur, max, vec->element_size);
+		comp = vec->compare(max, cur, vec->element_size);
 
-		if(comp > 0)
+		if(comp < 0)
 			max = cur;
-		else if(comp < 0)
+		else if(comp > 0)
 			return 0;
 	}
 

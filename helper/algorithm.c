@@ -26,13 +26,13 @@
 		mid = (min + max) / 2; \
 		__current_get__; \
 		\
-		comp = (dest)->compare((key), current, (dest)->element_size); \
+		comp = (dest)->compare(current, (key), (dest)->element_size); \
 		if(comp == 0) { \
 			if((pos)) \
 				*(pos) = mid; \
 			return current; \
 		} \
-		else if(comp < 0) { \
+		else if(comp > 0) { \
 			if((int) (mid - 1) < 0) \
 				break; \
 			max = mid - 1; \

@@ -185,7 +185,7 @@ int list_insert_at(list_type * list, unsigned int pos, void * value)
 	return 0;
 }
 
-int list_insert_sorted(list_type * list, void * value)
+int list_insert_sorted(list_type * list, void * value, int allow_doubles)
 {
 	int pos, comp;
 	void * current;
@@ -205,10 +205,12 @@ int list_insert_sorted(list_type * list, void * value)
 		/* TODO: this is very inefficient */
 		current = (char *) list_element(list, mid);
 
-		comp = list->compare(value, current, list->element_size);
-		if(comp == 0)
+		comp = list->compare(current, value, list->element_size);
+		if(comp == 0) {
+			if(!allow_doubles)
+				return 0;
 			break;
-		else if(comp < 0) {
+		} else if(comp > 0) {
 			if((int) (mid - 1) < 0)
 				break;
 			max = mid - 1;
@@ -217,7 +219,7 @@ int list_insert_sorted(list_type * list, void * value)
 			min = mid + 1;
 	} while (min <= max);
 
-	if(comp > 0)
+	if(comp < 0)
 		pos = mid + 1;
 	else
 		pos = mid;
@@ -421,11 +423,11 @@ int list_is_sorted(list_type *list)
 
 	for (i = 1; i < list->elements; i++) {
 		cur = list_element(list, i);
-		comp = list->compare(cur, max, list->element_size);
+		comp = list->compare(max, cur, list->element_size);
 
-		if(comp > 0)
+		if(comp < 0)
 			max = cur;
-		else if(comp < 0)
+		else if(comp > 0)
 			return 0;
 	}
 

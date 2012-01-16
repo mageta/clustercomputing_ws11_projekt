@@ -20,12 +20,14 @@
 #include "stack.h"
 #include "matrix.h"
 #include "components.h"
+#include "algorithm.h"
 
 #define MPI_TAG_BASE		0
 #define MPI_TAG_COMLIST_SIZE	MPI_TAG_BASE + 1
 #define MPI_TAG_COMLIST		MPI_TAG_COMLIST_SIZE + 1
 #define MPI_TAG_MAT_DIST	MPI_TAG_COMLIST + 1
 #define MPI_TAG_BORDER		MPI_TAG_MAT_DIST + 1
+#define MPI_TAG_MAT_DIMS	MPI_TAG_BORDER + 1
 
 static void debug_out(int id) {
 	static int debug_nr = 0;
@@ -52,14 +54,19 @@ struct processor_data {
 	/*
 	 * contains 'struct component_list' see comment of transform_clist()
 	 */
-	list_type *component_lists;
-	matrix_type *matrix;
+//	list_type *component_lists;
+	struct component_list *comp_list;
 	vector_type *borders;
+	matrix_type *matrix;
 };
 
 struct matrix_dims {
 	unsigned int m, n;
 } __attribute__((__packed__));
+
+static int		rid = 0;
+static MPI_Request	*requests;
+static MPI_Status	*status;
 
 /* registers the used MPI-types (see above) */
 static void	register_mpi_component_type	();
@@ -79,12 +86,16 @@ static int	mpi_receive_matrix		(struct processor_data *pdata);
 /* diverse helper */
 static int	read_input_file			(matrix_type **m,
 						char *file_name);
-static int	transform_clist			(struct processor_data *pdata,
-						 struct component_list *clist);
-static void	print_component_lists		(list_type *component_lists);
+static void	print_component_list		(struct component_list *list);
 static void	print_inputmatrix		(matrix_type *matrix);
 static void	print_border			(matrix_type *border,
 						 int dimension);
+static int	find_common_components		(struct processor_data *pdata,
+						 struct component_list
+							*communication_list,
+						 matrix_type *own_border,
+						 matrix_type
+							*communication_border);
 
 int main(int argc, char **argv)
 {
@@ -99,11 +110,8 @@ int main(int argc, char **argv)
 	int dims[COMM_DIMS], periods[COMM_DIMS];
 
 	struct processor_data pdata;
-	struct component_list *clist;
 
 	matrix_type *input_matrix;
-
-	srand(time(NULL));
 
 	MPI_Init(&argc, &argv);
 	MPI_Comm_rank(MPI_COMM_WORLD, &pdata.rank);
@@ -127,9 +135,9 @@ int main(int argc, char **argv)
 	 * m - 1 .. n - 1 / m -1
 	 */
 
-	rc = list_create(&pdata.component_lists,
-			sizeof(struct component_list));
-	if(rc) goto err_output;
+//	rc = list_create(&pdata.component_lists,
+//			sizeof(struct component_list));
+//	if(rc) goto err_output;
 
 	for(i = 0; i < COMM_DIMS; i++) {
 		dims[i] = 0;
@@ -157,7 +165,7 @@ int main(int argc, char **argv)
 	if(pdata.rank == 0) {
 		if(read_input_file(&input_matrix, argv[1])) {
 			fprintf(stderr, "\n%s\n", usage(argc, argv));
-			goto err_free_clists;
+			goto err_fileread;
 		}
 		rc = mpi_distribute_matrix(&pdata, dims, input_matrix);
 	} else {
@@ -165,29 +173,18 @@ int main(int argc, char **argv)
 	}
 
 	if(rc)
-		goto err_free_matrix;
+		goto err_matrix_distrib;
 
 	/*
 	 * the matrix-chunk is now available in pdata.matrix
 	 * lets find the local components
 	 */
 
-	rc = find_components(pdata.matrix, &clist, &pdata.borders);
+	rc = find_components(pdata.matrix, &pdata.comp_list, &pdata.borders);
 	if(rc)
-		goto err_free_matrix;
+		goto err_find_comp;
 
-	rc = transform_clist(&pdata, clist);
-	if(rc)
-		goto err_free_list;
-
-	/*
-	 * no longer needed as all components of it are part of the
-	 * pdata->component_lists structure
-	 */
-	component_list_destroy(clist);
-	clist = NULL;
-
-	print_component_lists(pdata.component_lists);
+	print_component_list(pdata.comp_list);
 
 	/* call main working function */
 
@@ -200,17 +197,16 @@ int main(int argc, char **argv)
 	 */
 	rc = 0;
 err_free_list:
-	borders_destroy(pdata.borders);
-	component_list_destroy(clist);
-err_free_matrix:
+	component_list_destroy(pdata.comp_list);
+//	borders_destroy(pdata.borders);
+err_find_comp:
 	matrix_destroy(pdata.matrix);
+err_matrix_distrib:
 	MPI_Comm_free(&pdata.topo);
-err_free_clists:
-	list_destroy(pdata.component_lists);
-
+err_fileread:
 	MPI_Type_free(&MPI_matrix_dims);
 	MPI_Type_free(&MPI_component_type);
-err_output:
+
 	if(!rc) {
 		MPI_Finalize();
 	} else {
@@ -218,6 +214,7 @@ err_output:
 				strerror(rc));
 		MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
 	}
+
 	if(input_matrix)
 		matrix_destroy(input_matrix);
 
@@ -382,92 +379,21 @@ err_out:
 	return -1;
 }
 
-/*
- * This function will transform a component_list returned by find_components
- * into the list-structure the rest of the algorithm expects.
- *
- * Essentialliy it takes each recognized component and creates a own
- * component_list for it and adds this list to the pdata's
- * component_lists-list. So, after this, each component has its own list.
- *
- * This is necessary so we can later recognize, if a component of an other
- * processesor was already added to a local component (to prevent duplicated
- * addition)
- *
- * To sum it up, after this call pdata->component_lists will contain a list of
- * (struct component_list) which in turn contains 1 component and thus is
- * representing a single component.
- *
- * pdata->component_lists (allocated pointer)
- *	-> struct component_list
- *		-> vector_type (allocated pointer)
- *			-> struct component
- */
-static int transform_clist(struct processor_data *pdata,
-		struct component_list *clist)
+static void print_component_list(struct component_list *list)
 {
-	int rc, i, max;
-	struct component *comp_p;
-	struct component_list comp_list;
-
-	for(i = 0; i < clist->components->elements; i++) {
-		comp_p = (struct component *)
-				vector_get_value(clist->components, i);
-
-		/* set the own rank, so we can later identify it */
-		comp_p->proc_rank = pdata->rank;
-
-		rc = vector_create(&comp_list.components, 1, sizeof(*comp_p));
-		if(rc)
-			goto err_free_lists;
-
-		rc = vector_add_value(comp_list.components, comp_p);
-		if(rc)
-			goto err_free_lists;
-
-		rc = list_append(pdata->component_lists, &comp_list);
-		if(rc)
-			goto err_free_lists;
-	}
-
-	return 0;
-err_free_lists:
-	max = pdata->component_lists->elements;
-	for (i = 0; i < max; i++) {
-		list_get_head(pdata->component_lists, &comp_list);
-		list_remove_head(pdata->component_lists);
-
-		vector_destroy(comp_list.components);
-	}
-	return rc;
-}
-
-/*
- * prints pdata->component_lists with each component_list and each
- * of their components
- */
-static void print_component_lists(list_type *component_lists)
-{
-	int i, j;
+	int i;
 	struct component *comp;
-	struct component_list *clist;
 
-	for (i = 0; i < component_lists->elements; i++) {
-		clist = list_element(component_lists, i);
+	fprintf(stdout, "clist:\n");
 
-		fprintf(stdout, "clist %d:\n", i);
+	for(i = 0; i < list->components->elements; i++) {
+		comp = (struct component *) vector_get_value(
+					list->components, i);
 
-		for(j = 0; j < clist->components->elements; j++) {
-			comp = (struct component *) vector_get_value(
-						clist->components, j);
-
-			fprintf(stdout, "comp %d, size %d, (%d, %d), "
-					"proc_rank %d\n",
-					comp->component_id, comp->size,
-					comp->example_coords[0],
-					comp->example_coords[1],
-					comp->proc_rank);
-		}
+		fprintf(stdout, "comp %d, size %d, (%d, %d)\n",
+				comp->component_id, comp->size,
+				comp->example_coords[0],
+				comp->example_coords[1]);
 	}
 }
 
@@ -482,10 +408,10 @@ static void print_inputmatrix(matrix_type *matrix)
 	for(i = 0; i < matrix->m; i++) {
 		for(j = 0; j < (matrix->n - 1); j++) {
 			val = *((unsigned char *) matrix_get(matrix, i, j));
-			fprintf(stdout, (val? "%hhd, " : " , "), val);
+			fprintf(stdout, (val? "%hhd, " : "%hhd, "), val);
 		}
 		val = *((unsigned char *) matrix_get(matrix, i, j));
-		fprintf(stdout, (val? "%hhd\n" : "\n"), val);
+		fprintf(stdout, (val? "%hhd\n" : "%hhd\n"), val);
 	}
 }
 
@@ -505,30 +431,6 @@ static void print_border(matrix_type *border, int dimension)
 	fprintf(stdout, "%hhd\n", val);
 }
 
-static void __send_mat_chunk(matrix_type *input_matrix,
-		unsigned int i, unsigned int j,
-		unsigned int m, unsigned int n,
-		MPI_Datatype *dt, MPI_Comm *comm)
-{
-	int coords[COMM_DIMS];
-	int comm_rank;
-	unsigned long displ;
-	MPI_Request req;
-
-	displ = (unsigned long) matrix_get(input_matrix, i * m, j * n)
-		- (unsigned long) ((char *) input_matrix->matrix);
-
-	coords[0] = i;
-	coords[1] = j;
-	MPI_Cart_rank(*comm, coords, &comm_rank);
-
-	/* TODO: save the req somewhere to free it later */
-	MPI_Isend(((char *) input_matrix->matrix) + displ, 1, *dt, comm_rank,
-			MPI_TAG_MAT_DIST, *comm, &req);
-	//MPI_Send(((char *) input_matrix->matrix) + displ, 1, *dt, comm_rank,
-	//		MPI_TAG_MAT_DIST, *comm);
-}
-
 static int mpi_distribute_matrix (struct processor_data *pdata,
 		int *topo_dims, matrix_type *input_matrix)
 {
@@ -536,6 +438,10 @@ static int mpi_distribute_matrix (struct processor_data *pdata,
 	unsigned int dim_m, dim_n;
 	unsigned int normal_n, remain_n;
 	double n_per_proc;
+
+	int comm_coords[COMM_DIMS];
+	int comm_rank;
+	void * comm_mat_begin;
 
 	struct matrix_dims dims;
 
@@ -561,6 +467,9 @@ static int mpi_distribute_matrix (struct processor_data *pdata,
 	 * so he can do a little more work
 	 */
 	remain_n = dim_n - normal_n * (topo_dims[1] - 1);
+
+	requests = calloc(pdata->topo_size - 1, sizeof(*requests));
+	status = calloc(pdata->topo_size - 1, sizeof(*status));
 
 	/*
 	 * prepare distribution of the dimension
@@ -609,12 +518,6 @@ static int mpi_distribute_matrix (struct processor_data *pdata,
 			disp_matrix->matrix, MPI_matrix_dims,
 			&dims, 1, MPI_matrix_dims, 0, pdata->topo);
 
-	/* create the space for the local matrix */
-	rc = matrix_create(&pdata->matrix, dims.m, dims.n,
-			sizeof(unsigned char));
-	if(rc)
-		goto err_create_lmatrix;
-
 	/*
 	 * Prepare distribution of the matrix-chunks
 	 *
@@ -640,20 +543,30 @@ static int mpi_distribute_matrix (struct processor_data *pdata,
 	MPI_Type_commit(&remain_dt);
 
 	for (i = 0; i < topo_dims[0]; i++) {
-		for (j = 0; j < (topo_dims[1] - 1); j++) {
-			if(i == pdata->coords[0] && j == pdata->coords[1])
+		for (j = 0; j < topo_dims[1]; j++) {
+			if(i == pdata->coords[0] && j == pdata->coords[1]) {
 				continue;
+			}
 
-			__send_mat_chunk(input_matrix, i, j, dim_m, normal_n,
-					&normal_dt, &pdata->topo);
+			comm_coords[0] = i;
+			comm_coords[1] = j;
+			MPI_Cart_rank(pdata->topo, comm_coords, &comm_rank);
+
+			comm_mat_begin = matrix_get(input_matrix, i * dim_m,
+					j * normal_n);
+
+			MPI_Isend(comm_mat_begin, 1, (j == (topo_dims[1] - 1) ?
+					remain_dt : normal_dt), comm_rank,
+					MPI_TAG_MAT_DIST, pdata->topo,
+					&requests[rid++]);
 		}
-
-		if(i == pdata->coords[0] && j == pdata->coords[1])
-			continue;
-
-		__send_mat_chunk(input_matrix, i, j, dim_m, normal_n,
-				&remain_dt, &pdata->topo);
 	}
+
+	/* create the space for the local matrix */
+	rc = matrix_create(&pdata->matrix, dims.m, dims.n,
+			sizeof(unsigned char));
+	if(rc)
+		goto err_create_lmatrix;
 
 	/* copy root-matrix */
 
@@ -682,7 +595,7 @@ err_create_dim:
 
 static int mpi_receive_matrix (struct processor_data *pdata)
 {
-	int rc;
+	int rc = 0;
 	struct matrix_dims dims;
 
 	MPI_Scatterv(NULL, NULL, NULL, MPI_matrix_dims,
@@ -706,21 +619,15 @@ err_out:
 
 static int mpi_working_function(struct processor_data *pdata, int *dims)
 {
-	int i, k, rc, max;
+	int rc;
 	int comm_coords[COMM_DIMS], comm_rank, comm_len = 0;
 	int target_dimension = (dims[0] > 1 ? 0 : 1);
-	size_t comm_size = 0;
 
 	MPI_Status status;
 	MPI_Datatype border_type;
 
-	matrix_type *communication_border, *own_border;
-	list_type *communication_lists;
-	struct component_list communication_list;
-
-	rc = list_create(&communication_lists, sizeof(communication_list));
-	if(rc)
-		goto err_commlists_create;
+	matrix_type *communication_border, *own_border, *compare_border;
+	struct component_list communication_list = { .components = NULL };
 
 	if(target_dimension == 0) { /* bottom border has to be sent */
 		MPI_Type_contiguous(pdata->matrix->n, MPI_UNSIGNED,
@@ -728,6 +635,8 @@ static int mpi_working_function(struct processor_data *pdata, int *dims)
 
 		own_border = (matrix_type *) vector_get_value(
 				pdata->borders, BORDER_BOTTOM);
+		compare_border = (matrix_type *) vector_get_value(
+				pdata->borders, BORDER_TOP);
 
 		rc = matrix_create(&communication_border, 1, pdata->matrix->n,
 				own_border->element_size);
@@ -742,6 +651,8 @@ static int mpi_working_function(struct processor_data *pdata, int *dims)
 
 		own_border = (matrix_type *) vector_get_value(
 				pdata->borders, BORDER_RIGHT);
+		compare_border = (matrix_type *) vector_get_value(
+				pdata->borders, BORDER_LEFT);
 
 		rc = matrix_create(&communication_border, pdata->matrix->m, 1,
 				own_border->element_size);
@@ -766,37 +677,24 @@ static int mpi_working_function(struct processor_data *pdata, int *dims)
 		/* get the corresponding rank */
 		MPI_Cart_rank(pdata->topo, comm_coords, &comm_rank);
 
-		/* get the count of component_lists to receive */
-		MPI_Recv(&comm_size, 1, MPI_UNSIGNED, comm_rank,
-				MPI_TAG_COMLIST_SIZE, pdata->topo, &status);
+		/* probe the count of components */
+		MPI_Probe(comm_rank, MPI_TAG_COMLIST, pdata->topo,
+				&status);
+		MPI_Get_count(&status, MPI_component_type, &comm_len);
 
-		/* receive the lists */
-		for(k = 0; k < comm_size; k++) {
-			/* probe the count of components in the list */
-			MPI_Probe(comm_rank, MPI_TAG_COMLIST, pdata->topo,
-					&status);
-			MPI_Get_count(&status, MPI_component_type, &comm_len);
+		/* allocate enougth memory to save to components */
+		rc = vector_create(&communication_list.components,
+				comm_len, sizeof(struct component));
+		if(rc)
+			goto err_compvector_create;
 
-			/* allocate enougth memory to save to components */
-			rc = vector_create(&communication_list.components,
-					comm_len, sizeof(struct component));
-			if(rc)
-				goto err_compvector_create;
+		/* get the list */
+		MPI_Recv(communication_list.components->values,
+				comm_len, MPI_component_type, comm_rank,
+				MPI_TAG_COMLIST, pdata->topo, &status);
 
-			/* get the list */
-			MPI_Recv(communication_list.components->values,
-					comm_len, MPI_component_type, comm_rank,
-					MPI_TAG_COMLIST, pdata->topo, &status);
-
-			/* set the count of wirtten elements in the vector */
-			communication_list.components->elements = comm_len;
-
-			/* add it to the comm_comp_list */
-			rc = list_append(communication_lists,
-						&communication_list);
-			if(rc)
-				goto err_comp_append;
-		}
+		/* set the count of wirtten elements in the vector */
+		communication_list.components->elements = comm_len;
 
 		/* receive the border */
 		MPI_Recv(communication_border->matrix, 1, border_type,
@@ -804,10 +702,15 @@ static int mpi_working_function(struct processor_data *pdata, int *dims)
 				&status);
 
 		fprintf(stdout, "\nlists from rank %d:\n", comm_rank);
-		print_component_lists(communication_lists);
+		print_component_list(&communication_list);
 
 		fprintf(stdout, "\nborder from rank %d:\n", comm_rank);
 		print_border(communication_border, target_dimension);
+
+		rc = find_common_components(pdata, &communication_list,
+				compare_border, communication_border);
+		if(rc)
+			goto err_find_comcomp;
 	}
 
 	/*
@@ -825,19 +728,11 @@ static int mpi_working_function(struct processor_data *pdata, int *dims)
 
 		MPI_Cart_rank(pdata->topo, comm_coords, &comm_rank);
 
-		/* send count of component_lists */
-		MPI_Send(&pdata->component_lists->elements, 1, MPI_UNSIGNED,
-				comm_rank, MPI_TAG_COMLIST_SIZE, pdata->topo);
-
-		for(k = 0; k < pdata->component_lists->elements; k++) {
-			list_get(pdata->component_lists, k,
-					&communication_list);
-
-			MPI_Send(communication_list.components->values,
-					communication_list.components->elements,
-					MPI_component_type, comm_rank,
-					MPI_TAG_COMLIST, pdata->topo);
-		}
+		/* send the own component-list */
+		MPI_Send(pdata->comp_list->components->values,
+				pdata->comp_list->components->elements,
+				MPI_component_type, comm_rank,
+				MPI_TAG_COMLIST, pdata->topo);
 
 		/* send the border */
 		MPI_Send(own_border->matrix, 1, border_type, comm_rank,
@@ -846,20 +741,202 @@ static int mpi_working_function(struct processor_data *pdata, int *dims)
 
 	/* cleanup */
 	rc = 0;
+err_find_comcomp:
 err_compvector_create:
-err_comp_append:
 	matrix_destroy(communication_border);
 err_border_create:
 	MPI_Type_free(&border_type);
-
-	max = communication_lists->elements;
-	for (i = 0; i < max; i++) {
-		list_get_head(communication_lists, &communication_list);
-		list_remove_head(communication_lists);
-		vector_destroy(communication_list.components);
-	}
-	list_destroy(communication_lists);
-err_commlists_create:
+	vector_destroy(communication_list.components);
 	return rc;
 }
 
+static int component_compare(const void *lhv, const void *rhv, size_t size)
+{
+	struct component *lhc = (struct component *) lhv;
+	struct component *rhc = (struct component *) rhv;
+
+	if(lhc->component_id < rhc->component_id)
+		return -1;
+	else if(lhc->component_id > rhc->component_id)
+		return 1;
+	else
+		return 0;
+}
+
+struct component_composite {
+	unsigned int alien_cid,
+		     own_cid,
+		     merge_target;
+};
+
+static int compcomposite_compare(const void *lhv, const void *rhv, size_t size)
+{
+	struct component_composite *lhc = (struct component_composite *) lhv;
+	struct component_composite *rhc = (struct component_composite *) rhv;
+
+	if(lhc->alien_cid < rhc->alien_cid)
+		return -1;
+	else if(lhc->alien_cid > rhc->alien_cid)
+		return 1;
+	else {
+		if(rhc->own_cid == 0)
+			return 0;
+
+		if(lhc->own_cid < rhc->own_cid)
+			return -1;
+		else if(lhc->own_cid > rhc->own_cid)
+			return 1;
+		else {
+			if(rhc->merge_target == 0)
+				return 0;
+
+			if(lhc->merge_target < rhc->merge_target)
+				return -1;
+			else if(lhc->merge_target > rhc->merge_target)
+				return 1;
+			else
+				return 0;
+		}
+	}
+}
+
+static int find_common_components(struct processor_data *pdata,
+		struct component_list *communication_list,
+		matrix_type *own_border,
+		matrix_type *communication_border)
+{
+	int rc, i, j, k;
+	unsigned int pos;
+	unsigned int rcid, lcid;
+
+	struct component *alien_comp, *own_comp, *merge_comp, compkey;
+	struct component_composite composite, compikey, *compi_p;
+	vector_type *composites;
+
+	rc = vector_create(&composites, (matrix_size(own_border) / 3) + 1,
+			sizeof(struct component_composite));
+	if(rc)
+		goto err_composites_create;
+
+	memset(&compkey, 0, sizeof(compkey));
+	memset(&compikey, 0, sizeof(compikey));
+
+	composites->compare = compcomposite_compare;
+
+	pdata->comp_list->components->compare = component_compare;
+	communication_list->components->compare = component_compare;
+
+	for(i = 0, j = 0; i < communication_border->m; i++) {
+		lcid = *((unsigned int *) matrix_get(communication_border,
+					i, j));
+
+		if(!lcid)
+			continue;
+
+		/* get the component with this id */
+		compkey.component_id = lcid;
+		alien_comp = bsearch_vector(communication_list->components,
+				&compkey, NULL);
+		if(!alien_comp) {
+			rc = EFAULT;
+			goto err_find_component;
+		}
+
+		/* look at the neighbour-field in our own border */
+		for (k = -1; k < 2; k++) {
+			if(!matrix_index_valid(own_border, i + k, j))
+				continue;
+
+			rcid = *((unsigned int *) matrix_get(own_border,
+						i + k, j));
+
+			if(!rcid)
+				continue;
+
+			/* get the component with this id */
+			compkey.component_id = rcid;
+			own_comp = bsearch_vector(
+					pdata->comp_list->components,
+					&compkey, NULL);
+			if(!alien_comp) {
+				rc = EFAULT;
+				goto err_find_component;
+			}
+
+			/*
+			 * test if we already merged this component with
+			 * something
+			 */
+			compikey.alien_cid = lcid;
+
+			compi_p = bsearch_vector(composites, &compikey, &pos);
+			if(!compi_p) {
+				/* no, it was never merged; do it now */
+
+//				own_comp->size += alien_comp->size;
+
+				/* save this composite */
+				composite.alien_cid = lcid;
+				composite.own_cid = rcid;
+				composite.merge_target = rcid;
+
+				rc = vector_insert_sorted(composites,
+						&composite, 0);
+				if(rc)
+					goto err_insert_composite;
+
+				continue;
+			}
+
+			/* yes we merged this component already */
+
+			if(compi_p->merge_target == rcid) {
+				/* we merge these two components already */
+				continue;
+			}
+
+			/*
+			 * the alien component connects two spearate
+			 * component of our own
+			 *
+			 * we have to merge two of our own components
+			 */
+
+			compkey.component_id = compi_p->merge_target;
+			merge_comp = bsearch_vector(
+					pdata->comp_list->components,
+					&compkey, NULL);
+			if(!alien_comp) {
+				rc = EFAULT;
+				goto err_find_component;
+			}
+
+			/* save this composite */
+			composite.alien_cid = lcid;
+			composite.own_cid = rcid;
+			composite.merge_target = compi_p->merge_target;
+
+			rc = vector_insert_sorted(composites,
+					&composite, 0);
+			if(rc)
+				goto err_insert_composite;
+		}
+	}
+
+	fprintf(stdout, "\nmerged components:\n");
+	for(i = 0; i < composites->elements; i++) {
+		compi_p = vector_get_value(composites, i);
+
+		fprintf(stdout, "(alien_cid: %d, own_cid: %d, merged_cid:"
+				" %d)\n",
+				compi_p->alien_cid, compi_p->own_cid,
+				compi_p->merge_target);
+	}
+
+	return 0;
+err_find_component:
+err_insert_composite:
+	vector_destroy(composites);
+err_composites_create:
+	return rc;
+}
