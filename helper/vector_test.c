@@ -204,7 +204,7 @@ main(int argc, char ** argv)
 	for (i = 0; i < TEST_INT_FIRST; i++) {
 		number = rand() % (TEST_INT_FIRST * 10);
 
-		rc = vector_insert_sorted(test_vector, &number);
+		rc = vector_insert_sorted(test_vector, &number, 1);
 		if(rc) {
 			fprintf(stderr, "could not insert into to vector.."
 					" %s\n", strerror(rc));

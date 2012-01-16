@@ -11,6 +11,19 @@ struct list {
 	size_t elements;
 	size_t element_size;
 
+	/*
+	 * Can be set and is then used to compare two elements of the list
+	 * type.
+	 * If it is NULL, then the elements are compared based on the
+	 * memory (actually, memcmp() is used).
+	 *
+	 * = 0 - equal
+	 * > 0 - greater
+	 * < 0 - smaller
+	 *
+	 * If a function compares a element of the list with a external 'key',
+	 * then the 'key' is always rh.
+	 */
 	int (* compare)(const void * lh, const void * rh, size_t element_size);
 };
 
@@ -30,7 +43,7 @@ int list_prepend(list_type * list, void * value)
 int list_insert_at(list_type * list, unsigned int pos, void * value)
 	__attribute__((warn_unused_result));
 
-int list_insert_sorted(list_type * list, void * value)
+int list_insert_sorted(list_type * list, void * value, int allow_doubles)
 	__attribute__((warn_unused_result));
 
 void * list_head(list_type *list)

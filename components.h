@@ -8,7 +8,6 @@
 #include "vector.h"
 
 struct component {
-	int proc_rank;
 	/* [0] = i; [1] = j; matrix-dimension-related */
 	unsigned int example_coords[COMM_DIMS];
 	unsigned int size;

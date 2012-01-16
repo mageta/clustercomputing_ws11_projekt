@@ -29,6 +29,9 @@ struct vector {
 	 * = 0 - equal
 	 * > 0 - greater
 	 * < 0 - smaller
+	 *
+	 * If a function compares a element of the vector with a external 'key',
+	 * then the 'key' is always rh.
 	 */
 	int (* compare)(const void * lh, const void * rh, size_t element_size);
 };
@@ -54,7 +57,7 @@ int vector_del_value(vector_type *vec, unsigned int i);
 
 int vector_insert(vector_type *vec, unsigned int i, void * value)
 	__attribute__((warn_unused_result));
-int vector_insert_sorted(vector_type *vec, void * value)
+int vector_insert_sorted(vector_type *vec, void * value, int allow_doubles)
 	__attribute__((warn_unused_result));
 
 int vector_append_list(vector_type *vec, list_type *list);

@@ -279,7 +279,7 @@ main(int argc, char ** argv)
 	for (i = 0; i < TEST_INT_FIRST; i++) {
 		number = rand() % (TEST_INT_FIRST * 10);
 
-		rc = list_insert_sorted(test_list, &number);
+		rc = list_insert_sorted(test_list, &number, 1);
 		if(rc) {
 			fprintf(stderr, "could not insert into the list.."
 					" %s\n", strerror(rc));
