@@ -71,6 +71,14 @@ void * matrix_get(matrix_type *matrix, size_t i, size_t j)
 			 (j * matrix->element_size)));
 }
 
+void * matrix_get_linear(matrix_type *matrix, size_t i)
+{
+	if(!matrix || !matrix->matrix || (i >= (matrix->m * matrix->n)))
+		return NULL;
+
+	return (void *) (((char *) matrix->matrix) + (i *matrix->element_size));
+}
+
 size_t matrix_size(matrix_type *matrix)
 {
 	if(!matrix)

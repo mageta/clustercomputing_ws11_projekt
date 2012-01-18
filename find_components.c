@@ -22,6 +22,8 @@
 #include "components.h"
 #include "algorithm.h"
 
+#define debug_if(condition) if(condition && fprintf(stderr, "ERR in %s:%d:%s(): %s\n", __FILE__, __LINE__, __func__, strerror(rc)))
+
 #define MPI_TAG_BASE		0
 #define MPI_TAG_COMLIST_SIZE	MPI_TAG_BASE + 1
 #define MPI_TAG_COMLIST		MPI_TAG_COMLIST_SIZE + 1
@@ -93,9 +95,10 @@ static void	print_border			(matrix_type *border,
 static int	find_common_components		(struct processor_data *pdata,
 						 struct component_list
 							*communication_list,
-						 matrix_type *own_border,
+						 matrix_type *compare_border,
+						 matrix_type *send_border,
 						 matrix_type
-							*communication_border);
+							*alien_border);
 
 int main(int argc, char **argv)
 {
@@ -108,6 +111,7 @@ int main(int argc, char **argv)
 	int rc = 0, i;
 
 	int dims[COMM_DIMS], periods[COMM_DIMS];
+	double       starttime, endtime, endtime2, endtime3;
 
 	struct processor_data pdata;
 
@@ -137,7 +141,7 @@ int main(int argc, char **argv)
 
 //	rc = list_create(&pdata.component_lists,
 //			sizeof(struct component_list));
-//	if(rc) goto err_output;
+//	debug_if(rc) goto err_output;
 
 	for(i = 0; i < COMM_DIMS; i++) {
 		dims[i] = 0;
@@ -160,6 +164,8 @@ int main(int argc, char **argv)
 
 	/* distribute / recive the input-matrix */
 
+	starttime = MPI_Wtime();
+
 	input_matrix = NULL;
 	pdata.matrix = NULL;
 	if(pdata.rank == 0) {
@@ -172,7 +178,11 @@ int main(int argc, char **argv)
 		rc = mpi_receive_matrix(&pdata);
 	}
 
-	if(rc)
+	endtime=MPI_Wtime();
+
+//	MPI_Barrier(MPI_COMM_WORLD);
+
+	debug_if(rc)
 		goto err_matrix_distrib;
 
 	/*
@@ -181,17 +191,30 @@ int main(int argc, char **argv)
 	 */
 
 	rc = find_components(pdata.matrix, &pdata.comp_list, &pdata.borders);
-	if(rc)
+	debug_if(rc)
 		goto err_find_comp;
+
+	endtime2=MPI_Wtime();
+
+//	MPI_Barrier(MPI_COMM_WORLD);
+
+	/* TODO: correct to example_coordinates of the components */
 
 	print_component_list(pdata.comp_list);
 
 	/* call main working function */
 
 	rc = mpi_working_function(&pdata, dims);
-	if(rc)
+	debug_if(rc)
 		goto err_free_list;
 
+	endtime3=MPI_Wtime();
+
+	fprintf(stderr, "%d: distribute-phase %fs, find-phsae %fs, "
+			"border-phase %fs, "
+			"whole-phase %fs\n",
+			pdata.rank, endtime - starttime, endtime2 - endtime,
+			endtime3 - endtime, endtime3 - starttime);
 	/*
 	 * clean up
 	 */
@@ -327,7 +350,7 @@ static int read_input_file(matrix_type **m, char *file_name)
 //	fprintf(stdout, "height: %d; width: %d\n", height, width);
 
 	rc = matrix_create(&matrix, height, width, sizeof(unsigned char));
-	if(rc) {
+	debug_if(rc) {
 		fprintf(stderr, "Could not create a matrix.. %s\n",
 				strerror(rc));
 		goto err_free_queue;
@@ -477,17 +500,17 @@ static int mpi_distribute_matrix (struct processor_data *pdata,
 
 	rc = matrix_create(&dim_matrix, topo_dims[0], topo_dims[1],
 			sizeof(struct matrix_dims));
-	if(rc)
+	debug_if(rc)
 		goto err_create_dim;
 
 	rc = matrix_create(&disp_matrix, topo_dims[0], topo_dims[1],
 			sizeof(int));
-	if(rc)
+	debug_if(rc)
 		goto err_create_disp;
 
 	rc = matrix_create(&count_matrix, topo_dims[0], topo_dims[1],
 			sizeof(int));
-	if(rc)
+	debug_if(rc)
 		goto err_create_count;
 
 	matrix_init(count_matrix, 1);
@@ -565,7 +588,7 @@ static int mpi_distribute_matrix (struct processor_data *pdata,
 	/* create the space for the local matrix */
 	rc = matrix_create(&pdata->matrix, dims.m, dims.n,
 			sizeof(unsigned char));
-	if(rc)
+	debug_if(rc)
 		goto err_create_lmatrix;
 
 	/* copy root-matrix */
@@ -603,7 +626,7 @@ static int mpi_receive_matrix (struct processor_data *pdata)
 
 	rc = matrix_create(&pdata->matrix, dims.m, dims.n,
 			sizeof(unsigned char));
-	if(rc)
+	debug_if(rc)
 		goto err_out;
 
 	MPI_Recv(pdata->matrix->matrix, matrix_size(pdata->matrix),
@@ -626,20 +649,22 @@ static int mpi_working_function(struct processor_data *pdata, int *dims)
 	MPI_Status status;
 	MPI_Datatype border_type;
 
-	matrix_type *communication_border, *own_border, *compare_border;
+	matrix_type *communication_border, *send_border, *compare_border;
 	struct component_list communication_list = { .components = NULL };
 
 	if(target_dimension == 0) { /* bottom border has to be sent */
 		MPI_Type_contiguous(pdata->matrix->n, MPI_UNSIGNED,
 				&border_type);
 
-		own_border = (matrix_type *) vector_get_value(
+		/* the own border to send to the neighbour */
+		send_border = (matrix_type *) vector_get_value(
 				pdata->borders, BORDER_BOTTOM);
+		/* the own border to compare with the received border */
 		compare_border = (matrix_type *) vector_get_value(
 				pdata->borders, BORDER_TOP);
 
 		rc = matrix_create(&communication_border, 1, pdata->matrix->n,
-				own_border->element_size);
+				send_border->element_size);
 	} else { /* right border has to be sent */
 		/*
 		 * this is maybe a little strange, but becuase the border has
@@ -649,17 +674,17 @@ static int mpi_working_function(struct processor_data *pdata, int *dims)
 		MPI_Type_contiguous(pdata->matrix->m, MPI_UNSIGNED,
 				&border_type);
 
-		own_border = (matrix_type *) vector_get_value(
+		send_border = (matrix_type *) vector_get_value(
 				pdata->borders, BORDER_RIGHT);
 		compare_border = (matrix_type *) vector_get_value(
 				pdata->borders, BORDER_LEFT);
 
 		rc = matrix_create(&communication_border, pdata->matrix->m, 1,
-				own_border->element_size);
+				send_border->element_size);
 	}
 	MPI_Type_commit(&border_type);
 
-	if(rc)
+	debug_if(rc)
 		goto err_border_create;
 
 	/*
@@ -685,7 +710,7 @@ static int mpi_working_function(struct processor_data *pdata, int *dims)
 		/* allocate enougth memory to save to components */
 		rc = vector_create(&communication_list.components,
 				comm_len, sizeof(struct component));
-		if(rc)
+		debug_if(rc)
 			goto err_compvector_create;
 
 		/* get the list */
@@ -708,8 +733,9 @@ static int mpi_working_function(struct processor_data *pdata, int *dims)
 		print_border(communication_border, target_dimension);
 
 		rc = find_common_components(pdata, &communication_list,
-				compare_border, communication_border);
-		if(rc)
+				compare_border, send_border,
+				communication_border);
+		debug_if(rc)
 			goto err_find_comcomp;
 	}
 
@@ -735,7 +761,7 @@ static int mpi_working_function(struct processor_data *pdata, int *dims)
 				MPI_TAG_COMLIST, pdata->topo);
 
 		/* send the border */
-		MPI_Send(own_border->matrix, 1, border_type, comm_rank,
+		MPI_Send(send_border->matrix, 1, border_type, comm_rank,
 				MPI_TAG_BORDER, pdata->topo);
 	}
 
@@ -769,10 +795,17 @@ struct component_composite {
 		     merge_target;
 };
 
-static int compcomposite_compare(const void *lhv, const void *rhv, size_t size)
+static int composite_compare_a(const void *lhv, const void *rhv, size_t size)
 {
 	struct component_composite *lhc = (struct component_composite *) lhv;
 	struct component_composite *rhc = (struct component_composite *) rhv;
+
+	/*
+	 * rhc->own_cid and rhc->merge_target can be 0, but it is expected
+	 * that this is only the case, if the 'key' is used in a pure searching-
+	 * matter. If rhc is later to be inserted into the vector, these two
+	 * should never be 0 (0 is not a valid component_id)!
+	 */
 
 	if(lhc->alien_cid < rhc->alien_cid)
 		return -1;
@@ -800,68 +833,165 @@ static int compcomposite_compare(const void *lhv, const void *rhv, size_t size)
 	}
 }
 
+static int compositep_compare_o(const void *lhv, const void *rhv, size_t size)
+{
+	struct component_composite *lhc =
+		*((struct component_composite **) lhv);
+	struct component_composite *rhc =
+		*((struct component_composite **) rhv);
+
+	if(lhc->own_cid < rhc->own_cid)
+		return -1;
+	else if(lhc->own_cid > rhc->own_cid)
+		return 1;
+	else {
+		if(rhc->merge_target == 0)
+			return 0;
+
+		if(lhc->merge_target < rhc->merge_target)
+			return -1;
+		else if(lhc->merge_target > rhc->merge_target)
+			return 1;
+		else {
+			if(rhc->alien_cid == 0)
+				return 0;
+
+			if(lhc->alien_cid < rhc->alien_cid)
+				return -1;
+			else if(lhc->alien_cid > rhc->alien_cid)
+				return 1;
+			else
+				return 0;
+		}
+	}
+}
+
+static int compositep_compare_m(const void *lhv, const void *rhv, size_t size)
+{
+	struct component_composite *lhc =
+		*((struct component_composite **) lhv);
+	struct component_composite *rhc =
+		*((struct component_composite **) rhv);
+
+	if(lhc->merge_target < rhc->merge_target)
+		return -1;
+	else if(lhc->merge_target > rhc->merge_target)
+		return 1;
+	else {
+		if(rhc->alien_cid == 0)
+			return 0;
+
+		if(lhc->alien_cid < rhc->alien_cid)
+			return -1;
+		else if(lhc->alien_cid > rhc->alien_cid)
+			return 1;
+		else {
+			if(rhc->own_cid == 0)
+				return 0;
+
+			if(lhc->own_cid < rhc->own_cid)
+				return -1;
+			else if(lhc->own_cid > rhc->own_cid)
+				return 1;
+			else
+				return 0;
+		}
+	}
+}
+
+static int __insert_composite(vector_type *vec, unsigned int acid,
+		unsigned int ocid, unsigned int mcid, vector_type *index,
+		unsigned int *rpos)
+{
+	struct component_composite comp, *comp_p;
+	int rc;
+	unsigned int pos;
+
+	comp.alien_cid = acid;
+	comp.own_cid = ocid;
+	comp.merge_target = mcid;
+
+	rc = vector_insert_sorted_pos(vec, &comp, 0, &pos);
+	if(rc)
+		return rc;
+
+	if(rpos)
+		*rpos = pos;
+
+	comp_p = (struct component_composite *) vector_get_value(vec, pos);
+	rc = vector_insert_sorted(index, &comp_p, 0);
+	if(rc)
+		return rc;
+
+	return 0;
+}
+
 static int find_common_components(struct processor_data *pdata,
 		struct component_list *communication_list,
-		matrix_type *own_border,
-		matrix_type *communication_border)
+		matrix_type *compare_border, matrix_type *send_border,
+		matrix_type *alien_border)
 {
-	int rc, i, j, k;
-	unsigned int pos;
+	int rc, i, j, k, maxid;
+	unsigned int pos, pos2;
 	unsigned int rcid, lcid;
 
 	struct component *alien_comp, *own_comp, *merge_comp, compkey;
-	struct component_composite composite, compikey, *compi_p;
-	vector_type *composites;
+	struct component_composite composite, compikey, *compi_p, **compi_pp;
 
-	rc = vector_create(&composites, (matrix_size(own_border) / 3) + 1,
-			sizeof(struct component_composite));
-	if(rc)
-		goto err_composites_create;
+	vector_type *composites; /* basic vector, search-index for alien_cid */
+	/* pointer-copy of composites, search-index for own_cid */
+	vector_type *composites_owncid;
+
+	/* pointer-subgroup of composites, search-index for own_cid */
+	vector_type *merged_own;
+	/* copy of merged_own, search-index for merged_target */
+	vector_type *merged_own_merged;
+
+	rc = vector_create(&composites, (matrix_size(compare_border) / 3) + 1,
+			sizeof(composite));
+	debug_if(rc) goto err_composites_create;
+
+	rc = vector_create(&composites_owncid, (matrix_size(compare_border) /
+				3) + 1,	sizeof(&composite));
+	debug_if(rc) goto err_composites_owncid_create;
+
+	rc = vector_create(&merged_own, (matrix_size(compare_border) / 3) + 1,
+			sizeof(&composite));
+	debug_if(rc) goto err_mergedown_create;
+
+	rc = vector_create(&merged_own_merged, (matrix_size(compare_border) /
+				3) + 1,	sizeof(&composite));
+	debug_if(rc) goto err_mergedown_merged_create;
 
 	memset(&compkey, 0, sizeof(compkey));
 	memset(&compikey, 0, sizeof(compikey));
 
-	composites->compare = compcomposite_compare;
+	composites->compare = composite_compare_a;
+	composites_owncid->compare = compositep_compare_o;
+
+	merged_own->compare = compositep_compare_o;
+	merged_own_merged->compare = compositep_compare_m;
 
 	pdata->comp_list->components->compare = component_compare;
 	communication_list->components->compare = component_compare;
 
-	for(i = 0, j = 0; i < communication_border->m; i++) {
-		lcid = *((unsigned int *) matrix_get(communication_border,
+	for(i = 0, j = 0; i < alien_border->m; i++) {
+		lcid = *((unsigned int *) matrix_get(alien_border,
 					i, j));
 
 		if(!lcid)
 			continue;
 
-		/* get the component with this id */
-		compkey.component_id = lcid;
-		alien_comp = bsearch_vector(communication_list->components,
-				&compkey, NULL);
-		if(!alien_comp) {
-			rc = EFAULT;
-			goto err_find_component;
-		}
-
 		/* look at the neighbour-field in our own border */
 		for (k = -1; k < 2; k++) {
-			if(!matrix_index_valid(own_border, i + k, j))
+			if(!matrix_index_valid(compare_border, i + k, j))
 				continue;
 
-			rcid = *((unsigned int *) matrix_get(own_border,
+			rcid = *((unsigned int *) matrix_get(compare_border,
 						i + k, j));
 
 			if(!rcid)
 				continue;
-
-			/* get the component with this id */
-			compkey.component_id = rcid;
-			own_comp = bsearch_vector(
-					pdata->comp_list->components,
-					&compkey, NULL);
-			if(!alien_comp) {
-				rc = EFAULT;
-				goto err_find_component;
-			}
 
 			/*
 			 * test if we already merged this component with
@@ -873,17 +1003,70 @@ static int find_common_components(struct processor_data *pdata,
 			if(!compi_p) {
 				/* no, it was never merged; do it now */
 
-//				own_comp->size += alien_comp->size;
+				/* get the alien component */
+				compkey.component_id = lcid;
+				alien_comp = bsearch_vector(
+						communication_list->components,
+						&compkey, &pos);
+				debug_if(!alien_comp) {
+					rc = EFAULT;
+					goto err_find_component;
+				}
+
+				/*
+				 * to get the merge-target we have to check if
+				 * we already merged to component with an other
+				 * of our own. In that case, we have to merge
+				 * the alien component, with the other and not
+				 * the component adressed by the border.
+				 * (actually this isn't in the list anymore)
+				 */
+				compikey.alien_cid = 0;
+				compikey.own_cid = rcid;
+				compi_p = &compikey;
+
+				compi_pp = (struct component_composite **)
+					bsearch_vector(merged_own, &compi_p,
+							NULL);
+				if(compi_pp) {
+					compkey.component_id =
+						(**compi_pp).merge_target;
+				} else {
+					compkey.component_id = rcid;
+				}
+				compikey.own_cid = 0;
+
+				/* get our own component */
+				own_comp = bsearch_vector(
+						pdata->comp_list->components,
+						&compkey, NULL);
+				debug_if(!own_comp) {
+					rc = EFAULT;
+					goto err_find_component;
+				}
+
+				own_comp->size += alien_comp->size;
 
 				/* save this composite */
-				composite.alien_cid = lcid;
-				composite.own_cid = rcid;
-				composite.merge_target = rcid;
-
-				rc = vector_insert_sorted(composites,
-						&composite, 0);
-				if(rc)
+				rc = __insert_composite(composites,
+						alien_comp->component_id,
+						own_comp->component_id,
+						own_comp->component_id,
+						composites_owncid, NULL);
+				debug_if(rc)
 					goto err_insert_composite;
+
+				/*
+				 * delete this alien component from
+				 * communication_list, we don't need it
+				 * anymore.
+				 *
+				 * if an other border-field with its id
+				 * comes up, compi_p won't be NULL
+				 */
+				vector_del_value(
+						communication_list->components,
+						pos);
 
 				continue;
 			}
@@ -900,27 +1083,121 @@ static int find_common_components(struct processor_data *pdata,
 			 * component of our own
 			 *
 			 * we have to merge two of our own components
+			 * we also have to update to other borders later (this
+			 * component_id will be invalid afterward)
 			 */
+
+			/* get our own component */
+			compkey.component_id = rcid;
+			own_comp = bsearch_vector(
+					pdata->comp_list->components,
+					&compkey, &pos);
+			if(!own_comp) {
+				/*
+				 * this can happen, if we already merged this
+				 * component with an other of our own, so it is
+				 * ok.
+				 *
+				 * We could also search in the componet-
+				 * composite-vector for the component, but this
+				 * way it saves us time
+				 */
+				continue;
+			}
+
+			/* TODO: search and merge merged components */
 
 			compkey.component_id = compi_p->merge_target;
 			merge_comp = bsearch_vector(
 					pdata->comp_list->components,
 					&compkey, NULL);
-			if(!alien_comp) {
+			debug_if(!merge_comp) {
 				rc = EFAULT;
 				goto err_find_component;
 			}
 
-			/* save this composite */
-			composite.alien_cid = lcid;
-			composite.own_cid = rcid;
-			composite.merge_target = compi_p->merge_target;
+			merge_comp->size += own_comp->size;
 
-			rc = vector_insert_sorted(composites,
-					&composite, 0);
-			if(rc)
+			/* save this composite */
+			rc = __insert_composite(composites, lcid,
+					own_comp->component_id,
+					merge_comp->component_id,
+					composites_owncid, &pos2);
+			debug_if(rc)
 				goto err_insert_composite;
+
+			compi_p = vector_get_value(composites, pos2);
+
+			/*
+			 * save this composite, sorted after the own_cid-field,
+			 * this will save time when we later update to other
+			 * borders
+			 */
+			rc = vector_insert_sorted(merged_own, &compi_p, 0);
+			debug_if(rc)
+				goto err_insert_composite;
+
+			/*
+			 * delete the merge component out of our own list
+			 */
+			vector_del_value(pdata->comp_list->components, pos);
 		}
+	}
+
+	/*
+	 * ok, now communication_list only contains components, which are not
+	 * connected to any of our own. We just append these (for this, we need
+	 * to change their id to a unique one in our own list).
+	 */
+
+	/* get the id of the last component in our own *sorted* list */
+	own_comp = vector_get_value(pdata->comp_list->components,
+			pdata->comp_list->components->elements - 1);
+	maxid = own_comp->component_id;
+
+	k = communication_list->components->elements;
+	for(i = 0; i < k; i++) {
+		alien_comp = vector_get_value(communication_list->components,
+				i);
+		alien_comp->component_id = ++maxid;
+
+		/*
+		 * because this id will be bigger than any of our own, we can
+		 * just append it
+		 */
+		rc = vector_add_value(pdata->comp_list->components, alien_comp);
+		debug_if(rc)
+			goto err_insert_component;
+	}
+
+	/*
+	 * now the only thing left, is to update the other borders, because it
+	 * is possible, that we merged/deleted one of our own components
+	 *
+	 * because we currently only send one border to a other processor, we
+	 * only update this one
+	 */
+	memset(&compikey, 0, sizeof(compikey));
+	compi_p = &compikey;
+	for(i = 0, j = 0; i < send_border->m; i++) {
+		rcid = *((unsigned int *) matrix_get(send_border, i, j));
+
+		if(!rcid)
+			continue;
+
+		compikey.own_cid = rcid;
+		compi_pp = (struct component_composite **)
+				bsearch_vector(merged_own, &compi_p, &pos);
+		if(!compi_pp) {
+			/* this componend was not merged, so it still exists */
+			continue;
+		}
+
+		/*
+		 * this component was merged, so we need to change the border-
+		 * field into the id of the merge_target
+		 */
+		matrix_set(send_border, i, j, &(**compi_pp).merge_target);
 	}
 
 	fprintf(stdout, "\nmerged components:\n");
@@ -933,9 +1210,35 @@ static int find_common_components(struct processor_data *pdata,
 				compi_p->merge_target);
 	}
 
-	return 0;
+	fprintf(stdout, "\nmerged own:\n");
+	for(i = 0; i < merged_own->elements; i++) {
+		compi_p = *((struct component_composite **)
+				vector_get_value(merged_own, i));
+
+		fprintf(stdout, "(alien_cid: %d, own_cid: %d, merged_cid:"
+				" %d)\n",
+				compi_p->alien_cid, compi_p->own_cid,
+				compi_p->merge_target);
+	}
+
+	fprintf(stdout, "\nown components:\n");
+	print_component_list(pdata->comp_list);
+	fprintf(stdout, "\nalien components:\n");
+	print_component_list(communication_list);
+	fprintf(stdout, "\nsend_border:\n");
+	print_border(send_border, 1);
+
+	/* clean-up */
+	rc = 0;
+err_insert_component:
 err_find_component:
 err_insert_composite:
+	vector_destroy(merged_own_merged);
+err_mergedown_merged_create:
+	vector_destroy(merged_own);
+err_mergedown_create:
+	vector_destroy(composites_owncid);
+err_composites_owncid_create:
 	vector_destroy(composites);
 err_composites_create:
 	return rc;

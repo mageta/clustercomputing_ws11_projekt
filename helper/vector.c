@@ -209,7 +209,8 @@ int vector_insert(vector_type *vec, unsigned int i, void * value)
 	return 0;
 }
 
-int vector_insert_sorted(vector_type *vec, void * value, int allow_doubles)
+static int __vector_insert_sorted(vector_type *vec, void * value,
+		int allow_doubles, unsigned int *rpos)
 {
 	int rc;
 
@@ -253,7 +254,24 @@ int vector_insert_sorted(vector_type *vec, void * value, int allow_doubles)
 	else
 		pos = mid;
 
-	return vector_insert(vec, pos, value);
+	rc = vector_insert(vec, pos, value);
+	if(rc)
+		return rc;
+
+	if(rpos)
+		*rpos = pos;
+	return 0;
+}
+
+int vector_insert_sorted(vector_type *vec, void * value, int allow_doubles)
+{
+	return __vector_insert_sorted(vec, value, allow_doubles, NULL);
+}
+
+int vector_insert_sorted_pos(vector_type *vec, void * value, int allow_doubles,
+		unsigned int *rpos)
+{
+	return __vector_insert_sorted(vec, value, allow_doubles, rpos);
 }
 
 int vector_del_value(vector_type *vec, unsigned int i)
@@ -331,6 +349,103 @@ int vector_is_sorted(vector_type *vec)
 	}
 
 	return 1;
+}
+
+int vector_massmove(vector_type *vec, unsigned int from, unsigned int to,
+		unsigned int newpos, vector_type *buf)
+{
+	int rc;
+	char * run;
+	size_t ssize;
+
+	if(!vec || !vec->elements || !vec->values)
+		return EINVAL;
+
+	if(((to - from) < 0) || (from >= vec->elements) || (to >= vec->elements)
+			|| (newpos > vec->elements))
+		return EINVAL;
+
+	if((newpos > from) && (newpos <= to))
+		return EINVAL;
+
+	if(from == newpos || (to + 1) == newpos)
+		return 0;
+
+	if(!buf || (buf->elements > 0))
+		return EINVAL;
+
+	rc = __append_checks(buf, vec->elements);
+	if(rc)
+		return rc;
+
+	run = CHARP(buf);
+	if(newpos == vec->elements) {
+		/* move window to the end */
+
+		memcpy(run, vec->values, NELEMENTS(from, vec));
+		run += NELEMENTS(from, vec);
+
+		memcpy(run, CHARP(vec) + NELEMENTS(to + 1, vec),
+				NELEMENTS(vec->elements - to - 1, vec));
+		run += NELEMENTS(vec->elements - to - 1, vec);
+
+		memcpy(run, CHARP(vec) + NELEMENTS(from, vec),
+				NELEMENTS(to - from + 1, vec));
+	} else if(newpos == 0) {
+		/* move window to the beginning */
+
+		memcpy(run, CHARP(vec) + NELEMENTS(from, vec),
+				NELEMENTS(to - from + 1, vec));
+		run += NELEMENTS(to - from + 1, vec);
+
+		memcpy(run, vec->values, NELEMENTS(from, vec));
+		run += NELEMENTS(from, vec);
+
+		memcpy(run, CHARP(vec) + NELEMENTS(to + 1, vec),
+				NELEMENTS(vec->elements - to - 1, vec));
+	} else if(newpos < from) {
+		/* move before the first element of the window */
+
+		memcpy(run, vec->values, NELEMENTS(newpos, vec));
+		run += NELEMENTS(newpos, vec);
+
+		memcpy(run, CHARP(vec) + NELEMENTS(from, vec),
+				NELEMENTS(to - from + 1, vec));
+		run += NELEMENTS(to - from + 1, vec);
+
+		memcpy(run, CHARP(vec) + NELEMENTS(newpos, vec),
+				NELEMENTS(from - newpos, vec));
+		run += NELEMENTS(from - newpos, vec);
+
+		memcpy(run, CHARP(vec) + NELEMENTS(to + 1, vec),
+				NELEMENTS(vec->elements - to - 1, vec));
+	} else {
+		/* move after the last (+1) element of the window */
+
+		memcpy(run, vec->values, NELEMENTS(from, vec));
+		run += NELEMENTS(from, vec);
+
+		memcpy(run, CHARP(vec) + NELEMENTS(to + 1, vec),
+				NELEMENTS(newpos - to - 1, vec));
+		run += NELEMENTS(newpos - to - 1, vec);
+
+		memcpy(run, CHARP(vec) + NELEMENTS(from, vec),
+				NELEMENTS(to - from + 1, vec));
+		run += NELEMENTS(to - from + 1, vec);
+
+		memcpy(run, CHARP(vec) + NELEMENTS(newpos, vec),
+				NELEMENTS(vec->elements - newpos, vec));
+	}
+
+	run = vec->values;
+	vec->values = buf->values;
+	buf->values = run;
+
+	ssize = vec->len;
+	vec->len = buf->len;
+	buf->len = ssize;
+
+	return 0;
 }
 
 #undef __append_template

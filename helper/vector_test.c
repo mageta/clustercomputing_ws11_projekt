@@ -7,11 +7,11 @@
 #include "vector.h"
 #include "algorithm.h"
 
-#define TEST_NUMBERS 100
-#define TEST_INT_FIRST 100
+// #define TEST_NUMBERS 100
+// #define TEST_INT_FIRST 100
 
-// #define TEST_NUMBERS	10
-// #define TEST_INT_FIRST	10
+#define TEST_NUMBERS	10
+#define TEST_INT_FIRST	10
 
 void __output(vector_type * vec)
 {
@@ -238,7 +238,59 @@ main(int argc, char ** argv)
 		goto err_free_vector2;
 	}
 
+	fprintf(stdout, "[del]\n");
+	max = test_vector->elements;
+	for(i = 0; i < max; i++) {
+		rc = vector_del_value(test_vector, 0);
+		if(rc) {
+			fprintf(stderr, "vector_del_value failed.. %s\n",
+					strerror(rc));
+			goto err_free_vector;
+		}
+	}
+
+	if(test_vector->elements != 0) {
+		fprintf(stderr, "number of elements doesn't count up\n");
+		goto err_free_vector;
+	}
+
+	fprintf(stdout, "[add]\n");
+	for (i = 0; i < TEST_INT_FIRST; i++) {
+		rc = vector_add_value(test_vector, &i);
+		if(rc) {
+			fprintf(stderr, "could not append to the vector.. %s\n",
+					strerror(rc));
+			goto err_free_vector;
+		}
+	}
+
+	for (i = 0; i < (TEST_INT_FIRST / 2); i++) {
+		pos = test_vector->elements / 2;
+		max = 10;
+		rc = vector_insert(test_vector, pos, &max);
+		if(rc) {
+			fprintf(stderr, "could not append to the vector.. %s\n",
+					strerror(rc));
+			goto err_free_vector;
+		}
+	}
+
 	vector_destroy(test_vector2);
+	rc = vector_create(&test_vector2, 0, sizeof(number));
+	if(rc) {
+		fprintf(stdout, "could not create a vector.. %s\n",
+				strerror(rc));
+		goto err_free_vector;
+	}
+
+	rc = vector_massmove(test_vector, 5, 9, 2, test_vector2);
+	if(rc) {
+		fprintf(stdout, "massmove failed.. %s\n", strerror(rc));
+		goto err_free_vector2;
+	}
+
+	__output(test_vector);
+
 	vector_destroy(test_vector);
 
 	return 0;

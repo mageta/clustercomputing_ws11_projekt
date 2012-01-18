@@ -59,6 +59,9 @@ int vector_insert(vector_type *vec, unsigned int i, void * value)
 	__attribute__((warn_unused_result));
 int vector_insert_sorted(vector_type *vec, void * value, int allow_doubles)
 	__attribute__((warn_unused_result));
+int vector_insert_sorted_pos(vector_type *vec, void * value, int allow_doubles, 
+		unsigned int *rpos)
+	__attribute__((warn_unused_result));
 
 int vector_append_list(vector_type *vec, list_type *list);
 int vector_append_constvector(vector_type *vec, constvector_type *cvec);
@@ -67,6 +70,10 @@ int vector_append_vector(vector_type *dest, vector_type *src);
 int vector_contains(vector_type *vec, void * value)
 	__attribute__((warn_unused_result));
 int vector_is_sorted(vector_type *vec);
+
+int vector_massmove(vector_type *vec, unsigned int from, unsigned int to,
+	unsigned int newpos, vector_type *buf)
+	__attribute__((warn_unused_result));
 
 #define for_all_vector_elements(vec, i) \
 	for ((i) = 0; (i) < (vec)->elements; (i)++)
