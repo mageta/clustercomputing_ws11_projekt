@@ -21,8 +21,12 @@ void matrix_destroy(matrix_type *matrix);
 int matrix_set(matrix_type *matrix, size_t i, size_t j, void * value);
 void * matrix_get(matrix_type *matrix, size_t i, size_t j)
 	__attribute__((warn_unused_result));
+void * matrix_get_linear(matrix_type *matrix, size_t i)
+	__attribute__((warn_unused_result));
+
 size_t matrix_size(matrix_type *matrix);
 size_t matrix_size_byte(matrix_type *matrix);
+
 void matrix_init(matrix_type *matrix, char c);
 int matrix_copy(matrix_type **new_matrix, matrix_type *old_matrix)
 	__attribute__((warn_unused_result));
