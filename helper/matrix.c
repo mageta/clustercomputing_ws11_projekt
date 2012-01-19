@@ -47,18 +47,37 @@ matrix_destroy(matrix_type *m)
 	free(m);
 }
 
+static inline void __matrix_set(matrix_type *matrix, size_t i, void * value)
+{
+	memcpy(((char *) matrix->matrix) + (i * matrix->element_size),
+			value, matrix->element_size);
+}
+
 int matrix_set(matrix_type *matrix, size_t i, size_t j, void * value)
 {
 	if(!matrix || !matrix->matrix || !value ||
 			(i >= matrix->m) || (j >= matrix->n))
 		return EINVAL;
 
-	memcpy(((char *) matrix->matrix) +
-			((i * matrix->n * matrix->element_size) +
-			 (j * matrix->element_size)),
-			value, matrix->element_size);
+	__matrix_set(matrix, (i * matrix->n) + j, value);
 
 	return 0;
+}
+
+int matrix_set_linear(matrix_type *matrix, size_t i, void * value)
+{
+	if(!matrix || !matrix->matrix || !value ||
+			(i >= (matrix->m * matrix->n)))
+		return EINVAL;
+
+	__matrix_set(matrix, i, value);
+
+	return 0;
+}
+
+static inline void * __matrix_get(matrix_type *matrix, size_t i)
+{
+	return (void *) (((char *) matrix->matrix) + (i * matrix->element_size));
 }
 
 void * matrix_get(matrix_type *matrix, size_t i, size_t j)
@@ -66,9 +85,7 @@ void * matrix_get(matrix_type *matrix, size_t i, size_t j)
 	if(!matrix || !matrix->matrix || (i >= matrix->m) || (j >= matrix->n))
 		return NULL;
 
-	return (void *) (((char *) matrix->matrix) +
-			((i * matrix->n * matrix->element_size) +
-			 (j * matrix->element_size)));
+	return __matrix_get(matrix, (i * matrix->n) + j);
 }
 
 void * matrix_get_linear(matrix_type *matrix, size_t i)
@@ -76,7 +93,7 @@ void * matrix_get_linear(matrix_type *matrix, size_t i)
 	if(!matrix || !matrix->matrix || (i >= (matrix->m * matrix->n)))
 		return NULL;
 
-	return (void *) (((char *) matrix->matrix) + (i *matrix->element_size));
+	return __matrix_get(matrix, i) ;
 }
 
 size_t matrix_size(matrix_type *matrix)

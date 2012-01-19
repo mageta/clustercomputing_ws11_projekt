@@ -12,8 +12,8 @@ all: $(TARGETS) $(DIRS)
 pixelpattern: pixelpattern.o components.o helper
 	$(CC) $(CCFLAGS) $(DIRS:%=-L./%) $(DIRS:%=-I./%) -o $@ $< components.o $(LDFLAGS)
 
-find_components: find_components.o components.o helper
-	$(CC) $(CCFLAGS) $(DIRS:%=-L./%) $(DIRS:%=-I./%) -o $@ $< components.o $(LDFLAGS)
+find_components: find_components.o components.o border_compare.o helper
+	$(CC) $(CCFLAGS) $(DIRS:%=-L./%) $(DIRS:%=-I./%) -o $@ $< components.o border_compare.o $(LDFLAGS)
 
 borders_test: borders_test.o components.o helper
 	$(CC) $(CCFLAGS) $(DIRS:%=-L./%) $(DIRS:%=-I./%) -o $@ $< components.o $(LDFLAGS)
