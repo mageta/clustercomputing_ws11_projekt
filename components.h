@@ -14,6 +14,8 @@ struct component {
 	unsigned int component_id;
 } __attribute__((__packed__));
 
+int component_compare(const void *lhv, const void *rhv, size_t size);
+
 /* packed because this shall be transmitted via mpi */
 
 int component_create(struct component ** comp)

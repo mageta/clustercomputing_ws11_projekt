@@ -19,6 +19,8 @@ int matrix_create(matrix_type **matrix, size_t m, size_t n,
 void matrix_destroy(matrix_type *matrix);
 
 int matrix_set(matrix_type *matrix, size_t i, size_t j, void * value);
+int matrix_set_linear(matrix_type *matrix, size_t i, void * value);
+
 void * matrix_get(matrix_type *matrix, size_t i, size_t j)
 	__attribute__((warn_unused_result));
 void * matrix_get_linear(matrix_type *matrix, size_t i)

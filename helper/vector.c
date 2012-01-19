@@ -225,8 +225,11 @@ static int __vector_insert_sorted(vector_type *vec, void * value,
 	if(!vec->compare)
 		return EINVAL;
 
-	if(vec->elements == 0)
-		return vector_insert(vec, 0, value);
+	if(vec->elements == 0) {
+		if(rpos)
+			*rpos = 0;
+		return vector_add_value(vec, value);
+	}
 
 	min = 0;
 	max = vec->elements - 1;

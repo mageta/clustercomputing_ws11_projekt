@@ -532,6 +532,19 @@ component_destroy(struct component * comp)
 	free(comp);
 }
 
+int component_compare(const void *lhv, const void *rhv, size_t size)
+{
+	struct component *lhc = (struct component *) lhv;
+	struct component *rhc = (struct component *) rhv;
+
+	if(lhc->component_id < rhc->component_id)
+		return -1;
+	else if(lhc->component_id > rhc->component_id)
+		return 1;
+	else
+		return 0;
+}
+
 int
 component_list_create(struct component_list ** compl)
 {
@@ -550,6 +563,8 @@ component_list_create(struct component_list ** compl)
 	rc = vector_create(&cl->components, 0, sizeof(struct component));
 	err_if(rc)
 		goto err_vector_create;
+
+	cl->components->compare = component_compare;
 
 	*compl = cl;
 
