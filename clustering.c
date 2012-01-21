@@ -22,6 +22,12 @@
 #define MPI_TAG_MATRIX_DIMS	MPI_TAG_BASE + 1
 #define MPI_TAG_MATRIX		MPI_TAG_MATRIX_DIMS + 1
 #define MPI_TAG_BORDER		MPI_TAG_MATRIX + 1
+#define MPI_TAG_COMPONENTS	MPI_TAG_BORDER + 1
+#define MPI_TAG_COMLIST		MPI_TAG_COMPONENTS + 1
+
+MPI_Datatype MPI_component_type;
+
+static void	register_mpi_component_type	();
 
 static char * usage() {
 	static char text[256];
@@ -58,6 +64,38 @@ void print_workingmat(matrix_type *mat) {
 		}
 		printf("\n");
 	}
+}
+
+void register_mpi_component_type()
+{
+	struct component c;
+	int count = 5;
+	int blocklens[] = {1, COMM_DIMS, 1, 1, 1};
+	MPI_Aint displ[] = {
+		0,
+		(long) &c.example_coords[0] - (long) &c,
+		(long) &c.size - (long) &c,
+		(long) &c.component_id - (long) &c,
+		sizeof(struct component)
+	};
+	MPI_Datatype oldt[] = {
+		MPI_INT,
+		MPI_UNSIGNED,
+		MPI_UNSIGNED,
+		MPI_UNSIGNED,
+		MPI_UB
+	};
+	/*
+	 * this whole MPI_Type-thingy is realy fragile,
+	 * you should double-check if the resulting MPI_Datatype has the same length
+	 * as the c-datatype. MPI_Type_extent (!).
+	 * To get more confidenz in this, order the fields in the
+	 * struct according to the common padding-rules (aligend to the biggest type)
+	 * and finish the MPI_Dt with MPI_UB, like I did.
+	 */
+
+	MPI_Type_struct(count, blocklens, displ, oldt, &MPI_component_type);
+	MPI_Type_commit(&MPI_component_type);
 }
 
 /*
@@ -179,14 +217,14 @@ int main(int argc, char *argv[]) {
 	int source;
 	int dest;
 	int tag;
-	int sum = 0;
+	// int sum = 0;
 
 	MPI_Status status;
 	MPI_Datatype mpi_matrix_type;
 	MPI_Datatype mpi_matrix_dims_type;
 	MPI_Datatype mpi_border_type;
+	// MPI_Datatype mpi_components_type;
 
-	int column;
 	unsigned int matrix_dims[2];
 
 	// some mpi crap
@@ -195,19 +233,18 @@ int main(int argc, char *argv[]) {
   	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	// printf("process %d of %d reports for duty!\n", rank, p);
 
-	int i,j;
+	int i;
 	matrix_type *input_matrix;
 
 	// find_components
-	struct component_list *components;
+	struct component_list *components, recv_components;
 	vector_type *borders;
 	matrix_type *border;
-	unsigned int *cid;
-	unsigned int *mid;
-	unsigned int *cid_prev;
-	unsigned int *mid_prev;
-	unsigned int *cid_next;
-	unsigned int *mid_next;
+	unsigned int cid;
+	unsigned int mid;
+	unsigned int mid_prev = -1;
+	unsigned int mid_next = -1;
+	int comm_len = 0;
 
 
 
@@ -307,8 +344,6 @@ int main(int argc, char *argv[]) {
 		fprintf(stderr, "find_components failed.. %s\n", strerror(rc));
 		goto err_out;
 	}
-	printf("number of components: %i\n",components->components->elements);
-
 	// the right border is the one to be sent to the next node
 	border = vector_get_value(borders, BORDER_RIGHT);
 	/**
@@ -319,33 +354,82 @@ int main(int argc, char *argv[]) {
 	MPI_Type_vector(border->m, border->n, border->n, MPI_UNSIGNED_CHAR, &mpi_border_type);
 	MPI_Type_commit(&mpi_border_type);
 
+	// datatype for components
+	register_mpi_component_type();
+
 	// all nodes except the first one are receiving the right border from the left neighbour
 	if (rank > 0) {
 		source = rank - 1;
-		MPI_Recv(border->matrix, 1, mpi_border_type, source, MPI_TAG_BORDER, MPI_COMM_WORLD, &status);
-		printf("border transfer: %i <- %i\n", rank, source);
-		printf("border matches (current rank=%i):\nNr: recv- own value\n",rank);
+		
+		rc = MPI_Get_elements(&status, MPI_component_type, &comm_len);
+				if(rc) {
+					fprintf(stderr, "ERR in %s:%d:%s()\n", __FILE__, __LINE__, __func__);
+					goto err_out;
+				}
+		printf("elements: %i\n", comm_len);
+		rc = vector_create(&recv_components.components, comm_len,
+			sizeof(struct component));
+				if(rc) {
+					fprintf(stderr, "ERR in %s:%d:%s()\n", __FILE__, __LINE__, __func__);
+					goto err_out;
+				}
+		rc = MPI_Recv(recv_components.components->values, comm_len, MPI_component_type, source, MPI_TAG_COMLIST, MPI_COMM_WORLD, &status);
+				if(rc) {
+					fprintf(stderr, "ERR in %s:%d:%s()\n", __FILE__, __LINE__, __func__);
+					goto err_out;
+				}
+		printf("rank=%i: components (%i) transfer: %i <- %i\n",
+			rank,components->components->elements,rank,source);
+		
+		rc = MPI_Recv(border->matrix, 1, mpi_border_type, source, MPI_TAG_BORDER, MPI_COMM_WORLD, &status);
+				if(rc) {
+					fprintf(stderr, "ERR in %s:%d:%s()\n", __FILE__, __LINE__, __func__);
+					goto err_out;
+				}
+		printf("rank=%i: border transfer: %i <- %i\n",rank, rank, source);
+		printf("rank=%i: border matches (current rank=%i):\n\nNr: recv- own value",rank,rank);
 		for(i = 0; i < border->m; i++) {
 			cid = *((unsigned int *) matrix_get(border,i, 0));
 			mid = *((unsigned char *) matrix_get(working_matrix, i, 0));
-			if(i > 0) {
-				cid_prev = *((unsigned char *) matrix_get(border,i - 1, 0));
-				mid_prev = *((unsigned char *) matrix_get(working_matrix, i - 1, 0));
-			}
-			if(i < (border->m)-1) {
-				cid_next = *((unsigned char *) matrix_get(border,i + 1, 0));
-				mid_next = *((unsigned char *) matrix_get(working_matrix, i + 1, 0));
-			}
-
 			if(!cid)
-				fprintf(stdout, " %i:  0  - %2d\n",i, mid);
-			else {
-				fprintf(stdout, " %i: %2d  - %2d",i,cid, mid);
-				if ((mid != 0)) {
-					// matching process goes here ...
-					printf(" x\n");									
-				} else 
-					printf("\n");
+				fprintf(stdout, "\n %i:  0  - %2d",i, mid);
+			else { // if cid = 1 ...
+				fprintf(stdout, "\n %i: %2d  - %2d",i,cid, mid);
+				
+				/** if both id's are 1
+				 Example:     0 0
+				            ->1 1
+				              0 0
+				 */
+				if ((mid != 0)) { // if both id's are 1
+					printf(" x");		
+				} 
+
+				// now the diagonal connections:
+
+				/** if the upper right mid is 1
+				 Example:     0 1
+				            ->1 0
+				              0 0
+				 */
+				if(i > 0) { 
+					mid_prev = *((unsigned char *) matrix_get(working_matrix, i - 1, 0));
+					if (cid !=0 && mid_prev > 0) {
+						printf(" T");
+					} 
+				}
+
+				/** if the bottom right mid is 1
+				 Example:     0 0
+				            ->1 0
+				              0 1
+				 */
+				if(i < (border->m) - 1) {
+					mid_next = *((unsigned char *) matrix_get(working_matrix, i + 1, 0));
+					if (mid_next > 0) {
+						printf(" V");
+					}
+				}
 			}
 		}
 		printf("\n");
@@ -358,8 +442,19 @@ int main(int argc, char *argv[]) {
 	// all nodes except the last one send their right border to the right neighbour
 	if (rank < p - 1) {
 		dest = rank + 1;
+		rc = MPI_Ssend(components->components->values,components->components->elements,			MPI_component_type, dest, MPI_TAG_COMLIST, MPI_COMM_WORLD);
+		if(rc) {
+			fprintf(stderr, "ERR in %s:%d:%s()\n", __FILE__, __LINE__, __func__);
+			goto err_out;
+		}
+		printf("rank=%i: components (%i) transfer: %i -> %i\n",rank,components->components->elements, rank,dest);
 		MPI_Send(border->matrix, 1, mpi_border_type, dest, MPI_TAG_BORDER, MPI_COMM_WORLD);
-		printf("border transfer: %i -> %i\n", rank, dest );
+		printf("rank=%i: border transfer: %i -> %i\n",rank, rank, dest );
+	}
+
+
+	if(rc) { 
+		fprintf(stderr, "ERR in %s:%d:%s()\n", __FILE__, __LINE__, __func__);
 	}
 
 
@@ -370,6 +465,7 @@ int main(int argc, char *argv[]) {
 
 	// borders_destroy(borders);
 	component_list_destroy(components);
+	component_list_destroy(recv_components.components);
 	matrix_destroy(working_matrix);
 	matrix_destroy(input_matrix);
 	MPI_Type_free(&mpi_matrix_type);
