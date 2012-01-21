@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 
 #include <errno.h>
 
@@ -214,9 +215,8 @@ static int __vector_insert_sorted(vector_type *vec, void * value,
 {
 	int rc;
 
-	int pos, comp;
+	unsigned int pos;
 	void * current;
-	unsigned int min, max, mid;
 
 	rc = __pre_add_checks(vec, value);
 	if(rc)
@@ -231,31 +231,16 @@ static int __vector_insert_sorted(vector_type *vec, void * value,
 		return vector_add_value(vec, value);
 	}
 
-	min = 0;
-	max = vec->elements - 1;
+	pos = bsearch_vector_sortedpos(vec, value, 0, vec->elements - 1);
+	if(!allow_doubles) {
+		assert(pos <= vec->elements);
 
-	do {
-		mid = (min + max) / 2;
-		current = CHARP(vec) + NELEMENTS(mid, vec);
-
-		comp = vec->compare(current, value, vec->element_size);
-		if(comp == 0) {
-			if(!allow_doubles)
+		if(pos < vec->elements) {
+			current = CHARP(vec) + NELEMENTS(pos, vec);
+			if(vec->compare(current, value, vec->element_size) == 0)
 				return 0;
-			break;
-		} else if(comp > 0) {
-			if((int) (mid - 1) < 0)
-				break;
-			max = mid - 1;
 		}
-		else
-			min = mid + 1;
-	} while (min <= max);
-
-	if(comp < 0)
-		pos = mid + 1;
-	else
-		pos = mid;
+	}
 
 	rc = vector_insert(vec, pos, value);
 	if(rc)
@@ -355,11 +340,12 @@ int vector_is_sorted(vector_type *vec)
 }
 
 int vector_massmove(vector_type *vec, unsigned int from, unsigned int to,
-		unsigned int newpos, vector_type *buf)
+		unsigned int newpos, vector_type *remote_buf)
 {
-	int rc;
+	int rc, alloc;
 	char * run;
 	size_t ssize;
+	vector_type *buf;
 
 	if(!vec || !vec->elements || !vec->values)
 		return EINVAL;
@@ -374,8 +360,18 @@ int vector_massmove(vector_type *vec, unsigned int from, unsigned int to,
 	if(from == newpos || (to + 1) == newpos)
 		return 0;
 
-	if(!buf || (buf->elements > 0))
+	if(!remote_buf) {
+		rc = vector_create(&buf, vec->elements, vec->element_size);
+		if(rc)
+			goto err_buf_create;
+		alloc = 1;
+	} else if(remote_buf && ((remote_buf->elements > 0) ||
+			(remote_buf->element_size != vec->element_size))) {
 		return EINVAL;
+	} else {
+		buf = remote_buf;
+		alloc = 0;
+	}
 
 	rc = __append_checks(buf, vec->elements);
 	if(rc)
@@ -448,7 +444,13 @@ int vector_massmove(vector_type *vec, unsigned int from, unsigned int to,
 	vec->len = buf->len;
 	buf->len = ssize;
 
+	if(alloc == 1) {
+		vector_destroy(buf);
+	}
+
 	return 0;
+err_buf_create:
+	return rc;
 }
 
 #undef __append_template

@@ -1,8 +1,8 @@
 TARGETS = pixelpattern find_components borders_test
 
 CC	= /usr/local/bin/mpicc
-CCFLAGS	= -Wall --std=c99 -ggdb -pthread
-# CCFLAGS	= -Wall --std=c99 -pthread -O2 -pipe -fomit-frame-pointer
+CCFLAGS	= -Wall --std=c99 -ggdb -pthread -fms-extensions
+# CCFLAGS	= -Wall --std=c99 -pthread -O2 -pipe -fomit-frame-pointer -fms-extensions
 LDFLAGS	= -lm -lhelper
 DIRS	= helper
 LIBS	=

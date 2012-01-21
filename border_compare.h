@@ -7,6 +7,11 @@
 #include "matrix.h"
 #include "components.h"
 
+struct composite {
+	unsigned int unused;
+	unsigned int merge_target;	/* N */
+};
+
 struct composite_own {
 	unsigned int own_cid;		/* 1 */
 	unsigned int merge_target;	/* N */

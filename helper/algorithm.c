@@ -11,28 +11,21 @@
 #include "stack.h"
 #include "queue.h"
 
-#define __bsearch_pattern(dest, key, pos, __current_get__) \
-	int comp; \
-	unsigned int min, max, mid; \
-	char * current; \
-	\
-	if(!(dest) || !(key) || !(dest)->compare || !(dest)->elements) \
-		return NULL; \
-	\
-	min = 0; \
-	max = (dest)->elements - 1; \
+#define __bsearch_pos_pattern(dest, key, from, to, comp, pos, current, __current_get__) {\
+	unsigned int min = (from); \
+	unsigned int max = (to); \
+	unsigned int mid; \
 	\
 	do { \
 		mid = (min + max) / 2; \
 		__current_get__; \
 		\
-		comp = (dest)->compare(current, (key), (dest)->element_size); \
-		if(comp == 0) { \
-			if((pos)) \
-				*(pos) = mid; \
-			return current; \
+		(comp) = (dest)->compare((current), (key), (dest)->element_size); \
+		if((comp) == 0) { \
+			(pos) = mid; \
+			break; \
 		} \
-		else if(comp > 0) { \
+		else if((comp) > 0) { \
 			if((int) (mid - 1) < 0) \
 				break; \
 			max = mid - 1; \
@@ -40,20 +33,84 @@
 		else \
 			min = mid + 1; \
 	} while (min <= max); \
+	(pos) = mid; \
+}
+
+#define __bsearch_pattern(dest, key, from, to, rpos, __current_get__) \
+	int comp; \
+	unsigned int pos; \
+	char * current; \
 	\
+	if(!(dest) || !(key) || !(dest)->compare || !(dest)->elements) \
+		return NULL; \
+	\
+	__bsearch_pos_pattern(dest, key, from, to, \
+			comp, pos, current, __current_get__); \
+	\
+	if(comp == 0) {\
+		if((rpos)) \
+			*(rpos) = pos; \
+		return current; \
+	} \
 	return NULL;
 
-void * bsearch_vector(vector_type *vec, void * key, unsigned int *pos)
+void * bsearch_vector(vector_type *vec, void * key, unsigned int *rpos)
 {
-	__bsearch_pattern(vec, key, pos,
+	__bsearch_pattern(vec, key, 0, vec->elements - 1, rpos,
 			current = ((char *) vec->values) +
 				(mid * vec->element_size)
 			);
 }
 
-void * bsearch_list(list_type *list, void * key, unsigned int *pos)
+unsigned int bsearch_vector_sortedpos(vector_type *vec, void * key,
+		unsigned int from, unsigned int to)
 {
-	__bsearch_pattern(list, key, pos,
+	int comp;
+	unsigned int pos;
+	char * current;
+
+	__bsearch_pos_pattern(vec, key, from, to,
+			comp, pos, current,
+			current = ((char *) vec->values) +
+				(mid * vec->element_size));
+
+	if(comp < 0)
+		pos += 1;
+
+	if(pos <= to) {
+		current = ((char *) vec->values) + (pos * vec->element_size);
+		comp = vec->compare(current, key, vec->element_size);
+
+		while(comp < 0) {
+			current += vec->element_size;
+			if((++pos) > to)
+				break;
+
+			comp = vec->compare(current, key, vec->element_size);
+		}
+	}
+
+	if(pos > from) {
+		current = ((char *) vec->values) + (pos  * vec->element_size);
+		comp = vec->compare(current - vec->element_size, key,
+				vec->element_size);
+
+		while(comp > 0) {
+			current -= vec->element_size;
+			if((--pos) == from)
+				break;
+
+			comp = vec->compare(current - vec->element_size, key,
+					vec->element_size);
+		}
+	}
+
+	return pos;
+}
+
+void * bsearch_list(list_type *list, void * key, unsigned int *rpos)
+{
+	__bsearch_pattern(list, key, 0, list->elements - 1, rpos,
 			/* TODO: this is very inefficient */
 			current = (char *) list_element(list, mid)
 			);
