@@ -21,6 +21,8 @@
 })
 
 void * bsearch_vector(vector_type *vec, void * key, unsigned int *pos);
+unsigned int bsearch_vector_sortedpos(vector_type *vec, void * key,
+		unsigned int from, unsigned int to);
 void * bsearch_list(list_type *list, void * key, unsigned int *pos);
 
 int merge_sorted_vector(vector_type *dest, vector_type *src);

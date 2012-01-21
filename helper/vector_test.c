@@ -7,11 +7,11 @@
 #include "vector.h"
 #include "algorithm.h"
 
-// #define TEST_NUMBERS 100
-// #define TEST_INT_FIRST 100
+#define TEST_NUMBERS 100
+#define TEST_INT_FIRST 100
 
-#define TEST_NUMBERS	10
-#define TEST_INT_FIRST	10
+// #define TEST_NUMBERS	10
+// #define TEST_INT_FIRST	10
 
 void __output(vector_type * vec)
 {
@@ -30,6 +30,19 @@ void __output(vector_type * vec)
 		return;
 	}
 	fprintf(stdout, "%d\n", *num_p);
+}
+
+int intcompare(const void *lh, const void *rh, size_t size)
+{
+	int lhv = *((int *) lh);
+	int rhv = *((int *) rh);
+
+	if(lhv < rhv)
+		return -1;
+	else if(lhv > rhv)
+		return 1;
+	else
+		return 0;
 }
 
 int
@@ -54,6 +67,7 @@ main(int argc, char ** argv)
 				strerror(rc));
 		return rc;
 	}
+	test_vector->compare = intcompare;
 
 	fprintf(stdout, "[add]\n");
 	for (i = 0; i < TEST_INT_FIRST; i++) {
@@ -145,6 +159,7 @@ main(int argc, char ** argv)
 				strerror(rc));
 		goto err_free_vector;
 	}
+	test_vector2->compare = intcompare;
 
 	fprintf(stdout, "[add]\n");
 	for (i = 0, max = 0; i < TEST_INT_FIRST; i++) {
@@ -282,16 +297,46 @@ main(int argc, char ** argv)
 				strerror(rc));
 		goto err_free_vector;
 	}
+	test_vector2->compare = intcompare;
 
-	rc = vector_massmove(test_vector, 5, 9, 2, test_vector2);
+	rc = vector_massmove(test_vector, 5, 9, test_vector->elements - 1, NULL);
 	if(rc) {
 		fprintf(stdout, "massmove failed.. %s\n", strerror(rc));
 		goto err_free_vector2;
 	}
-
 	__output(test_vector);
 
+	fprintf(stdout, "[insert_sorted]\n");
+	vector_destroy(test_vector2);
+	rc = vector_create(&test_vector2, TEST_NUMBERS * 100, sizeof(number));
+	if(rc) {
+		fprintf(stdout, "could not create a vector.. %s\n",
+				strerror(rc));
+		goto err_free_vector;
+	}
+	test_vector2->compare = intcompare;
+
+	for(i = 0; i < TEST_NUMBERS * 100; i++) {
+		number = rand() % 1000;
+
+		rc = vector_insert_sorted(test_vector2, &number, 1);
+		if(rc) {
+			fprintf(stderr, "could not insert into to vector.."
+					" %s\n", strerror(rc));
+			goto err_free_vector2;
+		}
+
+		rc = vector_is_sorted(test_vector2);
+		if(!rc) {
+			fprintf(stderr, "insert ended up in a unsorted vector"
+					"\n");
+			__output(test_vector2);
+			goto err_free_vector2;
+		}
+	}
+
 	vector_destroy(test_vector);
+	vector_destroy(test_vector2);
 
 	return 0;
 err_free_vector2:
