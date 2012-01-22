@@ -5,6 +5,7 @@
 
 if [[ "$LAMRANK" == "1" ]]; then
 	ddd $* &> mpi_output.${LAMRANK}
+#	valgrind $* &> mpi_output.${LAMRANK}
 else
 	$* &> mpi_output.${LAMRANK}
 fi

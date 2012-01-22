@@ -441,28 +441,28 @@ find_components(matrix_type *mat,
 						iter_node.rel_pos));
 		}
 	}
-{ /* only for debugging, can be removed later */
-	int i, j;
-	fprintf(stdout, "\n");
-	for(i = 0; i < graph->matrix->m; i++) {
-		for(j = 0; j < (graph->matrix->n - 1); j++) {
-			node = (struct graph_node *)	matrix_graph_get_node(graph, i, j);
-
-			if(node->component)
-				fprintf(stdout, "%2u, ", node->component->component_id);
-			else
-				fprintf(stdout, "  , ");
-		}
-
-		node = (struct graph_node *)	matrix_graph_get_node(graph, i, j);
-
-		if(node->component)
-			fprintf(stdout, "%2u\n", node->component->component_id);
-		else
-			fprintf(stdout, "  \n");
-	}
-	fprintf(stdout, "\n");
-}
+//{ /* only for debugging, can be removed later */
+//	int i, j;
+//	fprintf(stdout, "\n");
+//	for(i = 0; i < graph->matrix->m; i++) {
+//		for(j = 0; j < (graph->matrix->n - 1); j++) {
+//			node = (struct graph_node *)	matrix_graph_get_node(graph, i, j);
+//
+//			if(node->component)
+//				fprintf(stdout, "%2u, ", node->component->component_id);
+//			else
+//				fprintf(stdout, "  , ");
+//		}
+//
+//		node = (struct graph_node *)	matrix_graph_get_node(graph, i, j);
+//
+//		if(node->component)
+//			fprintf(stdout, "%2u\n", node->component->component_id);
+//		else
+//			fprintf(stdout, "  \n");
+//	}
+//	fprintf(stdout, "\n");
+//}
 
 	if(bord) {
 		rc = borders_fill(bord, graph);
