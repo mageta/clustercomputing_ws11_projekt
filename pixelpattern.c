@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <assert.h>
 #include <string.h>
 #include <errno.h>
 #include <limits.h>
@@ -56,10 +57,14 @@ err_out:
 
 static unsigned int urand()
 {
-	int urandom = open("/dev/urandom", O_RDONLY);
+	int urandom = open("/dev/urandom", O_RDONLY), rlen;
 	unsigned int rc;
 
-	read(urandom, &rc, sizeof(rc));
+	assert(urandom >= 0);
+
+	rlen = read(urandom, &rc, sizeof(rc));
+
+	assert(rlen == sizeof(rc));
 
 	close(urandom);
 

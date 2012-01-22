@@ -73,7 +73,7 @@ main(int argc, char ** argv)
 		}
 
 		val = *((int *) node.mem);
-		fprintf(stdout, "[(%2ld, %2ld), %2d)]\n", node.i, node.j, val);
+		fprintf(stdout, "[(%2d, %2d), %2d)]\n", (unsigned int) node.i, (unsigned int) node.j, val);
 	}
 	fprintf(stdout, "\n");
 
@@ -91,7 +91,7 @@ main(int argc, char ** argv)
 		}
 
 		val = *((int *) node.mem);
-		fprintf(stdout, "[(%2ld, %2ld), %2d)]\n", node.i, node.j, val);
+		fprintf(stdout, "[(%2d, %2d), %2d)]\n", (unsigned int) node.i, (unsigned int) node.j, val);
 	}
 	fprintf(stdout, "\n");
 
@@ -114,7 +114,7 @@ main(int argc, char ** argv)
 		}
 
 		val = *((int *) node.mem);
-		fprintf(stdout, "[(%2ld, %2ld), %2d)]\n", node.i, node.j, val);
+		fprintf(stdout, "[(%2d, %2d), %2d)]\n", (unsigned int) node.i, (unsigned int) node.j, val);
 	}
 	fprintf(stdout, "\n");
 
@@ -137,7 +137,7 @@ main(int argc, char ** argv)
 		}
 
 		val = *((int *) node.mem);
-		fprintf(stdout, "[(%2ld, %2ld), %2d)]\n", node.i, node.j, val);
+		fprintf(stdout, "[(%2d, %2d), %2d)]\n", (unsigned int) node.i, (unsigned int) node.j, val);
 	}
 
 	matrix_graph_destroy(graph);

@@ -1,8 +1,8 @@
-TARGETS = pixelpattern find_components borders_test
+TARGETS = pixelpattern find_components
 
 CC	= /usr/local/bin/mpicc
-CCFLAGS	= -Wall --std=c99 -ggdb -pthread -fms-extensions
-# CCFLAGS	= -Wall --std=c99 -pthread -O2 -pipe -fomit-frame-pointer -fms-extensions
+# CCFLAGS	= -Wall --std=c99 -ggdb -pthread -fms-extensions
+CCFLAGS	= -Wall --std=c99 -pthread -O2 -pipe -fomit-frame-pointer -fms-extensions -finline-functions
 LDFLAGS	= -lm -lhelper
 DIRS	= helper
 LIBS	=
@@ -14,9 +14,6 @@ pixelpattern: pixelpattern.o components.o helper
 
 find_components: find_components.o components.o border_compare.o helper
 	$(CC) $(CCFLAGS) $(DIRS:%=-L./%) $(DIRS:%=-I./%) -o $@ $< components.o border_compare.o $(LDFLAGS)
-
-borders_test: borders_test.o components.o helper
-	$(CC) $(CCFLAGS) $(DIRS:%=-L./%) $(DIRS:%=-I./%) -o $@ $< components.o $(LDFLAGS)
 
 $(DIRS): force_look
 	@cd $@; $(MAKE) all
