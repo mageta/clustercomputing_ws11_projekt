@@ -6,6 +6,11 @@
 #include <time.h>
 #include <wchar.h>
 
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
 #include "matrix.h"
 #include "stack.h"
 #include "components.h"
@@ -47,6 +52,18 @@ long int read_input(char * arg) {
 
 err_out:
 	return val;
+}
+
+static unsigned int urand()
+{
+	int urandom = open("/dev/urandom", O_RDONLY);
+	unsigned int rc;
+
+	read(urandom, &rc, sizeof(rc));
+
+	close(urandom);
+
+	return rc;
 }
 
 int
@@ -178,7 +195,7 @@ int generate_pixel_pattern(unsigned long int height, unsigned long int width,
 	if(rc)
 		goto err_list_cl;
 
-	srand(time(NULL));
+	srand(urand());
 
 	filled = 0;
 	failed = 0;

@@ -16,6 +16,10 @@
 #include "algorithm.h"
 #include "border_compare.h"
 
+int debug_func(unsigned int id) {
+	return id;
+}
+
 #define debug_if(condition) if(condition && fprintf(stderr, "ERR in %s:%d:%s(): %s\n", __FILE__, __LINE__, __func__, strerror(rc)))
 
 static char * __print_composite_own(struct composite_own *c)
@@ -51,26 +55,17 @@ int compalien_compare_a(const void *lhv, const void *rhv, size_t size)
 		return 0;
 }
 
-int compalien_p_compare_m(const void *lhv, const void *rhv, size_t size)
+int compalien_compare_m(const void *lhv, const void *rhv, size_t size)
 {
-	struct composite_alien *lhc = *((struct composite_alien **) lhv);
-	struct composite_alien *rhc = *((struct composite_alien **) rhv);
+	struct composite_alien *lhc = (struct composite_alien *) lhv;
+	struct composite_alien *rhc = (struct composite_alien *) rhv;
 
 	if(lhc->merge_target < rhc->merge_target)
 		return -1;
 	else if(lhc->merge_target > rhc->merge_target)
 		return 1;
-	else {
-		if(rhc->alien_cid == 0)
-			return 0;
-
-		if(lhc->alien_cid < rhc->alien_cid)
-			return -1;
-		else if(lhc->alien_cid > rhc->alien_cid)
-			return 1;
-		else
-			return 0;
-	}
+	else
+		return 0;
 }
 
 int compown_compare_o(const void *lhv, const void *rhv, size_t size)
@@ -86,26 +81,52 @@ int compown_compare_o(const void *lhv, const void *rhv, size_t size)
 		return 0;
 }
 
-int compown_p_compare_m(const void *lhv, const void *rhv, size_t size)
+int compown_compare_m(const void *lhv, const void *rhv, size_t size)
 {
-	struct composite_own *lhc = *((struct composite_own **) lhv);
-	struct composite_own *rhc = *((struct composite_own **) rhv);
+	struct composite_own *lhc = (struct composite_own *) lhv;
+	struct composite_own *rhc = (struct composite_own *) rhv;
 
 	if(lhc->merge_target < rhc->merge_target)
 		return -1;
 	else if(lhc->merge_target > rhc->merge_target)
 		return 1;
-	else {
-		if(rhc->own_cid == 0)
-			return 0;
+	else
+		return 0;
+}
 
-		if(lhc->own_cid < rhc->own_cid)
-			return -1;
-		else if(lhc->own_cid > rhc->own_cid)
-			return 1;
-		else
-			return 0;
+static int __test_vectors(
+		vector_type *merged_alien, vector_type *idx_mergedalien_m,
+		vector_type *merged_own, vector_type *idx_mergedown_m)
+{
+	int rc;
+
+	rc = vector_is_sorted(merged_alien);
+	if(rc != 1) {
+		fprintf(stderr, "__test_vectors: merged_alien is unsorted\n");
+		goto err_unsorted;
 	}
+
+	rc = vector_is_sorted(idx_mergedalien_m);
+	if(rc != 1) {
+		fprintf(stderr, "__test_vectors: idx_mergedalien_m is unsorted\n");
+		goto err_unsorted;
+	}
+
+	rc = vector_is_sorted(merged_own);
+	if(rc != 1) {
+		fprintf(stderr, "__test_vectors: merged_own is unsorted\n");
+		goto err_unsorted;
+	}
+
+	rc = vector_is_sorted(idx_mergedown_m);
+	if(rc != 1) {
+		fprintf(stderr, "__test_vectors: idx_mergedown_m is unsorted\n");
+		goto err_unsorted;
+	}
+
+	return 0;
+err_unsorted:
+	return EFAULT;
 }
 
 static int __init_composite_vectors(size_t init_size,
@@ -122,10 +143,10 @@ static int __init_composite_vectors(size_t init_size,
 	init->compare = compalien_compare_a;
 	*merged_alien = init;
 
-	rc = vector_create(&init, init_size, sizeof(struct composite_alien *));
+	rc = vector_create(&init, init_size, sizeof(struct composite_alien));
 	debug_if(rc)
 		goto err_idx_mergedalien_create;
-	init->compare = compalien_p_compare_m;
+	init->compare = compalien_compare_m;
 	*idx_mergedalien_m = init;
 
 	rc = vector_create(&init, init_size, sizeof(struct composite_own));
@@ -134,10 +155,10 @@ static int __init_composite_vectors(size_t init_size,
 	init->compare = compown_compare_o;
 	*merged_own = init;
 
-	rc = vector_create(&init, init_size, sizeof(struct composite_own *));
+	rc = vector_create(&init, init_size, sizeof(struct composite_own));
 	debug_if(rc)
 		goto err_idx_mergedown_create;
-	init->compare = compown_p_compare_m;
+	init->compare = compown_compare_m;
 	*idx_mergedown_m = init;
 
 	return 0;
@@ -166,20 +187,18 @@ static int __insert_compalien(vector_type *merged_alien,
 		unsigned int merge_target)
 {
 	int rc;
-	unsigned int pos;
-	struct composite_alien compa, *compa_p;
+	struct composite_alien compa;
 
 //	fprintf(stderr, "__insert_comalien: %d -> %d\n", alien_cid, merge_target);
 
 	compa.alien_cid = alien_cid;
 	compa.merge_target = merge_target;
 
-	rc = vector_insert_sorted_pos(merged_alien, &compa, 0, &pos);
+	rc = vector_insert_sorted(merged_alien, &compa, 0);
 	debug_if(rc)
 		return rc;
 
-	compa_p = vector_get_value(merged_alien, pos);
-	rc = vector_insert_sorted(idx_mergedalien_m, &compa_p, 0);
+	rc = vector_insert_sorted(idx_mergedalien_m, &compa, 1);
 	debug_if(rc)
 		return rc;
 
@@ -191,20 +210,18 @@ static int __insert_compown(vector_type *merged_own,
 		unsigned int merge_target)
 {
 	int rc;
-	unsigned int pos;
-	struct composite_own compo, *compo_p;
+	struct composite_own compo;
 
 //	fprintf(stderr, "__insert_compown: %d -> %d\n", own_cid, merge_target);
 
 	compo.own_cid = own_cid;
 	compo.merge_target = merge_target;
 
-	rc = vector_insert_sorted_pos(merged_own, &compo, 0, &pos);
+	rc = vector_insert_sorted(merged_own, &compo, 0);
 	debug_if(rc)
 		return rc;
 
-	compo_p = vector_get_value(merged_own, pos);
-	rc = vector_insert_sorted(idx_mergedown_m, &compo_p, 0);
+	rc = vector_insert_sorted(idx_mergedown_m, &compo, 1);
 	debug_if(rc)
 		return rc;
 
@@ -271,14 +288,34 @@ static int __merge_alien(struct component_list *owncompl,
 	 */
 	vector_del_value(aliencompl->components, pos);
 
+//	/* DEBUGGING */
+//	if((rc = __test_vectors(merged_alien, idx_mergedalien_m,
+//					merged_own, idx_mergedown_m)))
+//		return rc;
+
 	return 0;
 err_find_component:
 err_insert_composite:
 	return rc;
 }
 
-static int __update_merged_target(vector_type *idx_m, unsigned int old_value,
-		unsigned int new_value)
+static inline int __set_merged_value(vector_type *vec, struct composite *compikey,
+		unsigned int merge_target)
+{
+	int rc;
+	struct composite *compi_p;
+
+	compi_p = bsearch_vector(vec, compikey, NULL);
+	debug_if((rc = EFAULT) && !compi_p)
+		return EFAULT;
+
+	compi_p->merge_target = merge_target;
+
+	return 0;
+}
+
+static int __update_merged_target(vector_type *vec, vector_type *idx_m,
+		unsigned int old_value,	unsigned int new_value)
 {
 	int rc, i;
 	unsigned int init_pos, min_pos, max_pos, insert_pos;
@@ -287,16 +324,15 @@ static int __update_merged_target(vector_type *idx_m, unsigned int old_value,
 	 * we don't distinguish between _alien and _own, because we only need
 	 * the merge_target-field
 	 */
-	struct composite compikey = {0, 0}, *compi_p, **compi_pp;
+	struct composite compikey = {0, 0}, *compi_p;
 
 	static vector_type *buf = NULL;
 
 	compikey.merge_target = old_value;
-	compi_p = &compikey;
-	compi_pp = bsearch_vector(idx_m, &compi_p, &init_pos);
-	if(!compi_pp)
+	compi_p = bsearch_vector(idx_m, &compikey, &init_pos);
+	if(!compi_p)
 		return 0;
-	
+
 	if(!buf) {
 		/*
 		 * TODO: this is more like a hack.. if you ever want a multithreaded
@@ -307,7 +343,7 @@ static int __update_merged_target(vector_type *idx_m, unsigned int old_value,
 			goto err_buf_create;
 	}
 
-	fprintf(stderr, "__update_merged_target: %d -> %d\n", old_value, new_value);
+//	fprintf(stderr, "__update_merged_target: %d -> %d\n", old_value, new_value);
 
 	/*
 	 * ok, now we know there is at least one component to changed.
@@ -315,29 +351,36 @@ static int __update_merged_target(vector_type *idx_m, unsigned int old_value,
 	 * merge_target and save the minmal and maximal position of this group
 	 */
 	min_pos = max_pos = i = init_pos;
+	compikey.merge_target = old_value;
 
 	do {
-		(*compi_pp)->merge_target = new_value;
+		compi_p->merge_target = new_value;
+		compikey.unused = compi_p->unused;
+		__set_merged_value(vec, &compikey, new_value);
+
 		min_pos = i;
 
 		if((--i) < 0)
 			break;
 
-		compi_pp = vector_get_value(idx_m, i);
-		debug_if(!compi_pp)
+		compi_p = vector_get_value(idx_m, i);
+		debug_if(!compi_p)
 			goto err_get_composite;
-	} while ((*compi_pp)->merge_target == old_value);
+	} while (compi_p->merge_target == old_value);
 
 	i = max_pos;
 	while((++i) < idx_m->elements) {
-		compi_pp = vector_get_value(idx_m, i);
-		debug_if(!compi_pp)
+		compi_p = vector_get_value(idx_m, i);
+		debug_if(!compi_p)
 			goto err_get_composite;
 
-		if((*compi_pp)->merge_target != old_value)
+		if(compi_p->merge_target != old_value)
 			break;
 
-		(*compi_pp)->merge_target = new_value;
+		compi_p->merge_target = new_value;
+		compikey.unused = compi_p->unused;
+		__set_merged_value(vec, &compikey, new_value);
+
 		max_pos = i;
 	}
 
@@ -346,46 +389,46 @@ static int __update_merged_target(vector_type *idx_m, unsigned int old_value,
 	 * but we need to reorder the index. We have to move the whole group
 	 * [min_pos, max_pos] to a sorted position.
 	 */
+	compikey.unused = 0;
+	compikey.merge_target = 0;
 
 	insert_pos = -1;
 	/* look at the elements before the group */
 	i = min_pos - 1;
 	if(i >= 0) {
-		compi_pp = vector_get_value(idx_m, i);
-		debug_if(!compi_pp)
+		compi_p = vector_get_value(idx_m, i);
+		debug_if(!compi_p)
 			goto err_get_composite;
 
-		if((*compi_pp)->merge_target > new_value) {
+		if(compi_p->merge_target > new_value) {
 			/*
 			 * the new position of our group is
 			 * before ths current position
 			 */
 			compikey.merge_target = new_value;
-			compi_p = &compikey;
 
 			/* search in this speacial area */
 			insert_pos = bsearch_vector_sortedpos(
-					idx_m, &compi_p, 0, i);
+					idx_m, &compikey, 0, i);
 		}
 	}
 
 	i = max_pos + 1;
 	if(i < idx_m->elements) {
-		compi_pp = vector_get_value(idx_m, i);
-		debug_if(!compi_pp)
+		compi_p = vector_get_value(idx_m, i);
+		debug_if(!compi_p)
 			goto err_get_composite;
 
-		if((*compi_pp)->merge_target < new_value) {
+		if(compi_p->merge_target < new_value) {
 			/*
 			 * the new position of our group is
 			 * before ths current position
 			 */
 			compikey.merge_target = new_value;
-			compi_p = &compikey;
 
 			/* search in this speacial area */
 			insert_pos = bsearch_vector_sortedpos(
-					idx_m, &compi_p, i,
+					idx_m, &compikey, i,
 					idx_m->elements - 1);
 		}
 	}
@@ -399,10 +442,6 @@ static int __update_merged_target(vector_type *idx_m, unsigned int old_value,
 				insert_pos, buf);
 		debug_if(rc)
 			goto err_massmove;
-
-		/* DEBUGGING */
-		rc = vector_is_sorted(idx_m);
-		assert(rc != 1);
 	}
 
 	return 0;
@@ -422,21 +461,35 @@ static int __merge_own(struct component_list *owncompl,
 	unsigned int owncomp_pos;
 
 	struct component *own_comp, *merge_comp, compkey = {{0, 0}, 0, 0};
+	struct composite_own compokey = {0, 0}, *compo_p;
 
 	/* get our own component */
 	compkey.component_id = owncid;
 	own_comp = bsearch_vector(owncompl->components,	&compkey, &owncomp_pos);
 	if(!own_comp) {
 		/*
-		 * this can happen, if we already merged this
-		 * component with an other of our own, so it is
-		 * ok.
-		 *
-		 * We could also search in the componet-
-		 * composite-vector for the component, but this
-		 * way it saves us time
+		 * ok, the cid found on the right side doesn't exist
+		 * anymore, this happens if we already merged this component
+		 * of our own with some other component of our own. Lets
+		 * test this.
 		 */
-		return 0;
+
+		compokey.own_cid = owncid;
+		compo_p = bsearch_vector(merged_own, &compokey, NULL);
+		debug_if((rc = EFAULT) && !compo_p)
+			goto err_find_composite;
+
+		/* these two are already merged */
+		if(compo_p->merge_target == alienmerge_cid)
+			return 0;
+
+//		fprintf(stderr, "(%d, %d, %d)\n", aliencid, owncid, alienmerge_cid);
+
+		compkey.component_id = compo_p->merge_target;
+		own_comp = bsearch_vector(owncompl->components, &compkey,
+				&owncomp_pos);
+		debug_if((rc = EFAULT) && !own_comp)
+			goto err_find_component;
 	}
 
 	/* TODO: search and merge merged components */
@@ -463,13 +516,13 @@ static int __merge_own(struct component_list *owncompl,
 	 * be updated regarding thei merge_target
 	 */
 
-	rc = __update_merged_target(idx_mergedown_m, own_comp->component_id,
-			merge_comp->component_id);
+	rc = __update_merged_target(merged_own, idx_mergedown_m,
+			own_comp->component_id,	merge_comp->component_id);
 	debug_if(rc)
 		goto err_update_mtarget;
 
-	rc = __update_merged_target(idx_mergedalien_m, own_comp->component_id,
-			merge_comp->component_id);
+	rc = __update_merged_target(merged_alien, idx_mergedalien_m,
+			own_comp->component_id,	merge_comp->component_id);
 	debug_if(rc)
 		goto err_update_mtarget;
 
@@ -479,9 +532,15 @@ static int __merge_own(struct component_list *owncompl,
 	 */
 	vector_del_value(owncompl->components, owncomp_pos);
 
+//	/* DEBUGGING */
+//	if((rc = __test_vectors(merged_alien, idx_mergedalien_m,
+//					merged_own, idx_mergedown_m)))
+//		return rc;
+
 	return 0;
 err_update_mtarget:
 err_find_component:
+err_find_composite:
 err_insert_composite:
 	return rc;
 }
@@ -505,7 +564,7 @@ int find_common_components(struct component_list *own_compl,
 	vector_type *merged_own;
 	vector_type *idx_mergedown_m;
 
-	rc = __init_composite_vectors(matrix_size(alien_border) / 3,
+	rc = __init_composite_vectors(matrix_size(alien_border) / 2.5,
 			&merged_alien, &idx_mergedalien_m,
 			&merged_own, &idx_mergedown_m);
 	debug_if(rc)
@@ -638,17 +697,17 @@ int find_common_components(struct component_list *own_compl,
 		matrix_set_linear(send_border, i, &compo_p->merge_target);
 	}
 
-	fprintf(stdout, "\nmerged alien components:\n");
-	for(i = 0; i < merged_alien->elements; i++) {
-		compa_p = vector_get_value(merged_alien, i);
-		fprintf(stdout, "%s\n", __print_composite_alien(compa_p));
-	}
-
-	fprintf(stdout, "\nmerged own components:\n");
-	for(i = 0; i < merged_own->elements; i++) {
-		compo_p = vector_get_value(merged_own, i);
-		fprintf(stdout, "%s\n", __print_composite_own(compo_p));
-	}
+//	fprintf(stdout, "\nmerged alien components:\n");
+//	for(i = 0; i < merged_alien->elements; i++) {
+//		compa_p = vector_get_value(merged_alien, i);
+//		fprintf(stdout, "%s\n", __print_composite_alien(compa_p));
+//	}
+//
+//	fprintf(stdout, "\nmerged own components:\n");
+//	for(i = 0; i < merged_own->elements; i++) {
+//		compo_p = vector_get_value(merged_own, i);
+//		fprintf(stdout, "%s\n", __print_composite_own(compo_p));
+//	}
 
 	/* clean-up */
 	rc = 0;

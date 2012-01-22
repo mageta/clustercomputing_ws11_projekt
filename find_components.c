@@ -96,6 +96,7 @@ static void	print_component_list		(struct component_list *list);
 static void	print_inputmatrix		(matrix_type *matrix);
 static void	print_border			(matrix_type *border,
 						 int dimension);
+static void	print_result			(struct component_list *list);
 static void	correct_example_coordinates	(struct processor_data *pdata);
 
 int main(int argc, char **argv)
@@ -198,7 +199,7 @@ int main(int argc, char **argv)
 
 	correct_example_coordinates(&pdata);
 
-	print_component_list(pdata.comp_list);
+//	print_component_list(pdata.comp_list);
 
 	/* call main working function */
 
@@ -245,17 +246,15 @@ err_fileread:
 static void register_mpi_component_type()
 {
 	struct component c;
-	int count = 5;
-	int blocklens[] = {1, COMM_DIMS, 1, 1, 1};
+	int count = 4;
+	int blocklens[] = {COMM_DIMS, 1, 1, 1};
 	MPI_Aint displ[] = {
-		0,
 		(long) &c.example_coords[0] - (long) &c,
 		(long) &c.size - (long) &c,
 		(long) &c.component_id - (long) &c,
 		sizeof(struct component)
 	};
 	MPI_Datatype oldt[] = {
-		MPI_INT,
 		MPI_UNSIGNED,
 		MPI_UNSIGNED,
 		MPI_UNSIGNED,
@@ -415,6 +414,21 @@ static void print_component_list(struct component_list *list)
 				comp->component_id, comp->size,
 				comp->example_coords[0],
 				comp->example_coords[1]);
+	}
+}
+
+static void print_result(struct component_list *list)
+{
+	int i;
+	struct component *comp;
+
+	fprintf(stdout, "clist:\n");
+
+	for(i = 0; i < list->components->elements; i++) {
+		comp = (struct component *) vector_get_value(
+					list->components, i);
+
+		fprintf(stdout, "%d\n", comp->size);
 	}
 }
 
@@ -666,7 +680,7 @@ err_out:
 
 static int mpi_working_function(struct processor_data *pdata, int *dims)
 {
-	int rc;
+	int rc, last_proc = 1;
 	int comm_coords[COMM_DIMS], comm_rank, comm_len = 0;
 	int target_dimension = (dims[0] > 1 ? 0 : 1);
 
@@ -753,11 +767,11 @@ static int mpi_working_function(struct processor_data *pdata, int *dims)
 				comm_rank, MPI_TAG_BORDER, pdata->topo,
 				&status);
 
-		fprintf(stdout, "\nlists from rank %d:\n", comm_rank);
-		print_component_list(&communication_list);
-
-		fprintf(stdout, "\nborder from rank %d:\n", comm_rank);
-		print_border(communication_border, target_dimension);
+//		fprintf(stdout, "\nlists from rank %d:\n", comm_rank);
+//		print_component_list(&communication_list);
+//
+//		fprintf(stdout, "\nborder from rank %d:\n", comm_rank);
+//		print_border(communication_border, target_dimension);
 
 		rc = find_common_components(pdata->comp_list,
 				&communication_list, compare_border,
@@ -790,13 +804,18 @@ static int mpi_working_function(struct processor_data *pdata, int *dims)
 		/* send the border */
 		MPI_Send(send_border->matrix, 1, border_type, comm_rank,
 				MPI_TAG_BORDER, pdata->topo);
+
+		last_proc = 0;
 	}
 
-	fprintf(stdout, "\nown components:\n");
-	print_component_list(pdata->comp_list);
+//	fprintf(stdout, "\nown components:\n");
+//	print_component_list(pdata->comp_list);
+//
+//	fprintf(stdout, "\nsend_border:\n");
+//	print_border(send_border, 1);
 
-	fprintf(stdout, "\nsend_border:\n");
-	print_border(send_border, 1);
+	if(last_proc)
+		print_result(pdata->comp_list);
 
 	/* cleanup */
 	rc = 0;
