@@ -246,7 +246,7 @@ int main(int argc, char *argv[]) {
 	unsigned int mid_next = -1;
 	int comm_len = 0;
 
-
+	recv_components.components = NULL;
 
 	if(p < 2) {
 		printf("you should definitely start that program with more than 1 processes\n");
@@ -360,32 +360,35 @@ int main(int argc, char *argv[]) {
 	// all nodes except the first one are receiving the right border from the left neighbour
 	if (rank > 0) {
 		source = rank - 1;
-		
-		rc = MPI_Get_elements(&status, MPI_component_type, &comm_len);
-				if(rc) {
-					fprintf(stderr, "ERR in %s:%d:%s()\n", __FILE__, __LINE__, __func__);
-					goto err_out;
-				}
+
+		MPI_Probe(source, MPI_TAG_COMLIST, MPI_COMM_WORLD, &status);
+		rc = MPI_Get_count(&status, MPI_component_type, &comm_len);
+		if(rc) {
+			fprintf(stderr, "ERR in %s:%d:%s()\n", __FILE__, __LINE__, __func__);
+			goto err_out;
+		}
+
 		printf("elements: %i\n", comm_len);
-		rc = vector_create(&recv_components.components, comm_len,
-			sizeof(struct component));
-				if(rc) {
-					fprintf(stderr, "ERR in %s:%d:%s()\n", __FILE__, __LINE__, __func__);
-					goto err_out;
-				}
+		rc = vector_create(&recv_components.components, comm_len, sizeof(struct component));
+		if(rc) {
+			fprintf(stderr, "ERR in %s:%d:%s()\n", __FILE__, __LINE__, __func__);
+			goto err_out;
+		}
+
 		rc = MPI_Recv(recv_components.components->values, comm_len, MPI_component_type, source, MPI_TAG_COMLIST, MPI_COMM_WORLD, &status);
-				if(rc) {
-					fprintf(stderr, "ERR in %s:%d:%s()\n", __FILE__, __LINE__, __func__);
-					goto err_out;
-				}
-		printf("rank=%i: components (%i) transfer: %i <- %i\n",
-			rank,components->components->elements,rank,source);
-		
+		if(rc) {
+			fprintf(stderr, "ERR in %s:%d:%s()\n", __FILE__, __LINE__, __func__);
+			goto err_out;
+		}
+
+		printf("rank=%i: components (%i) transfer: %i <- %i\n", rank,components->components->elements,rank,source);
+
 		rc = MPI_Recv(border->matrix, 1, mpi_border_type, source, MPI_TAG_BORDER, MPI_COMM_WORLD, &status);
-				if(rc) {
-					fprintf(stderr, "ERR in %s:%d:%s()\n", __FILE__, __LINE__, __func__);
-					goto err_out;
-				}
+		if(rc) {
+			fprintf(stderr, "ERR in %s:%d:%s()\n", __FILE__, __LINE__, __func__);
+			goto err_out;
+		}
+
 		printf("rank=%i: border transfer: %i <- %i\n",rank, rank, source);
 		printf("rank=%i: border matches (current rank=%i):\n\nNr: recv- own value",rank,rank);
 		for(i = 0; i < border->m; i++) {
@@ -395,15 +398,15 @@ int main(int argc, char *argv[]) {
 				fprintf(stdout, "\n %i:  0  - %2d",i, mid);
 			else { // if cid = 1 ...
 				fprintf(stdout, "\n %i: %2d  - %2d",i,cid, mid);
-				
+
 				/** if both id's are 1
 				 Example:     0 0
 				            ->1 1
 				              0 0
 				 */
 				if ((mid != 0)) { // if both id's are 1
-					printf(" x");		
-				} 
+					printf(" x");
+				}
 
 				// now the diagonal connections:
 
@@ -412,11 +415,11 @@ int main(int argc, char *argv[]) {
 				            ->1 0
 				              0 0
 				 */
-				if(i > 0) { 
+				if(i > 0) {
 					mid_prev = *((unsigned char *) matrix_get(working_matrix, i - 1, 0));
 					if (cid !=0 && mid_prev > 0) {
 						printf(" T");
-					} 
+					}
 				}
 
 				/** if the bottom right mid is 1
@@ -434,15 +437,13 @@ int main(int argc, char *argv[]) {
 		}
 		printf("\n");
 		// print_workingmat(working_matrix);
-
-
-
 	}
 
 	// all nodes except the last one send their right border to the right neighbour
 	if (rank < p - 1) {
 		dest = rank + 1;
-		rc = MPI_Ssend(components->components->values,components->components->elements,			MPI_component_type, dest, MPI_TAG_COMLIST, MPI_COMM_WORLD);
+		rc = MPI_Send(components->components->values, components->components->elements,
+				MPI_component_type, dest, MPI_TAG_COMLIST, MPI_COMM_WORLD);
 		if(rc) {
 			fprintf(stderr, "ERR in %s:%d:%s()\n", __FILE__, __LINE__, __func__);
 			goto err_out;
@@ -453,15 +454,9 @@ int main(int argc, char *argv[]) {
 	}
 
 
-	if(rc) { 
+	if(rc) {
 		fprintf(stderr, "ERR in %s:%d:%s()\n", __FILE__, __LINE__, __func__);
 	}
-
-
-
-
-
-
 
 	// borders_destroy(borders);
 	component_list_destroy(components);
