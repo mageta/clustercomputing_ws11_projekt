@@ -3,7 +3,7 @@ TESTS	= vector_test matrix_test stack_test list_test queue_test matrixgraph_test
 
 CC	= /usr/local/bin/mpicc
 # CCFLAGS	= -Wall --std=c99 -ggdb -pthread -fms-extensions
-CCFLAGS	= -Wall --std=c99 -pthread -O2 -pipe -fomit-frame-pointer -fms-extensions -finline-functions
+CCFLAGS	= -Wall --std=c99 -pthread -O2 -pipe -fomit-frame-pointer -fms-extensions -finline-functions -march=native
 LDFLAGS	= -lm -lhelper
 DIRS	=
 LIBS	=
