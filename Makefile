@@ -2,7 +2,7 @@ TARGETS = pixelpattern find_components
 
 CC	= /usr/local/bin/mpicc
 # CCFLAGS	= -Wall --std=c99 -ggdb -pthread -fms-extensions
-CCFLAGS	= -Wall --std=c99 -pthread -O2 -pipe -fomit-frame-pointer -fms-extensions -finline-functions
+CCFLAGS	= -Wall --std=c99 -pthread -O2 -pipe -fomit-frame-pointer -fms-extensions -finline-functions -march=native
 LDFLAGS	= -lm -lhelper
 DIRS	= helper
 LIBS	=
