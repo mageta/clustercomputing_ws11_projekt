@@ -331,7 +331,7 @@ find_components(matrix_type *mat,
 	matrix_graph_node_type iter_node;
 
 	struct component comp;
-	struct component_list *compl_p;
+	struct component_list *compl_p = NULL;
 	struct node coords, current_coords;
 	struct graph_node init_node, *node, *current_node;
 	struct matrix_graph_neighbor_iterator *neighbours;

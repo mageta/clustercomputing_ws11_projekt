@@ -32,11 +32,6 @@
 #define MPI_TAG_BORDER		MPI_TAG_MAT_DIST + 1
 #define MPI_TAG_MAT_DIMS	MPI_TAG_BORDER + 1
 
-static void debug_out(int id) {
-	static int debug_nr = 0;
-	fprintf(stderr, "%d: debug_point %d\n", id, debug_nr++);
-}
-
 static MPI_Datatype MPI_component_type;
 static MPI_Datatype MPI_matrix_dims;
 

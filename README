@@ -1,3 +1,44 @@
 Cluster-Computing-Projekt ws11
 
-Task is described in 'Projektaufgabe2.pdf'
+Description of the Task can be found in 'docs/projektaufgabe.pdf'.
+The documentation (main algorithm ideas, run-time-analysis and remarks) can be
+found in 'docs/doku.pdf' (written in german).
+
+To build the project just issue 'make' in the main directory. This should build
+everything you need. The 'Makefile' (and 'helper/Makefile') expects a
+mpi-compiler located in /usr/local/bin ('/usr/local/bin/mpicc'). If your
+mpi-compiler is located somewjere else, pleas change the 'CC'-variable at the
+top of the two makefiles, or create a smybolic link
+(e.g. ln -s /usr/bin/mpicc /usr/local/bin/mpicc).
+
+If you want to debug the programm, please change the Makefiles and comment out
+the second 'CCFLAGS'-line plus uncomment the first one. This will issue the
+compiler to not optimize the code, not to omit fram pointers and not to destroy
+debugging-symbols. And do a >make clean< before rebuilding it with >make<.
+
+executables:
+
+./find_components <file>
+	- main programm, should be run with mpi_run
+	- expects a file as argument
+		- the file should contain the matrix to be analysed; format:
+			i/j . . . . . . . . . . . . . . . . n (j in n)
+			. a11, a12, . . . . . . . . . . a1n .
+			. a21                           .   .
+			. .                             .   .
+			. .                             .   .
+			. .                             .   .
+			. .                             .   .
+			. .                             .   .
+			. .                             .   .
+			. am1, am2, . . . . . . . . . . amn .
+			m . . . . . . . . . . . . . . . . . m/n
+			(i in m)
+
+./pixelpattern <m> <n>
+	- matrix-generator (no mpi)
+	- can be used to generate input for ./find_components
+	- to do so, issue it as follows:
+		./pixelpattern 20 20 2>pat.txt
+
+		-> pat.txt will contain the matrix

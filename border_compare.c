@@ -317,7 +317,7 @@ static inline int __set_merged_value(vector_type *vec, struct composite *compike
 static int __update_merged_target(vector_type *vec, vector_type *idx_m,
 		unsigned int old_value,	unsigned int new_value)
 {
-	int rc, i;
+	int rc = 0, i;
 	unsigned int init_pos, min_pos, max_pos, insert_pos;
 
 	/*
@@ -558,11 +558,11 @@ int find_common_components(struct component_list *own_compl,
 	struct composite_own compokey = {0, 0}, *compo_p;
 	struct component *alien_comp, *own_comp;
 
-	vector_type *merged_alien;
-	vector_type *idx_mergedalien_m;
+	vector_type *merged_alien = NULL;
+	vector_type *idx_mergedalien_m = NULL;
 
-	vector_type *merged_own;
-	vector_type *idx_mergedown_m;
+	vector_type *merged_own = NULL;
+	vector_type *idx_mergedown_m = NULL;
 
 	rc = __init_composite_vectors(matrix_size(alien_border) / 2.5,
 			&merged_alien, &idx_mergedalien_m,
