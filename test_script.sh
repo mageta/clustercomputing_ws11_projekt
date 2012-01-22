@@ -30,7 +30,7 @@ function run_findcomp() {
 	mv "${OUTFILE}.tmp" "${OUTFILE}"
 }
 
-CPUS="2"
+CPUS="6"
 
 run_pixelgenerator || { echo "pixelpattern failed"; exit 1; }
 run_findcomp "${PATTERN}" "${CPUS}" || { echo "find_components failed"; exit 1; }

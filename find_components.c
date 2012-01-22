@@ -172,12 +172,12 @@ int main(int argc, char **argv)
 		rc = mpi_receive_matrix(&pdata);
 	}
 
+	debug_if(rc)
+		goto err_matrix_distrib;
+
 	MPI_Barrier(MPI_COMM_WORLD);
 
 	endtime=MPI_Wtime();
-
-	debug_if(rc)
-		goto err_matrix_distrib;
 
 	/*
 	 * the matrix-chunk is now available in pdata.matrix
@@ -740,9 +740,12 @@ static int mpi_working_function(struct processor_data *pdata, int *dims)
 				&status);
 		MPI_Get_count(&status, MPI_component_type, &comm_len);
 
+		comm_len = (comm_len > 0 ? comm_len : 0);
+
 		/* allocate enougth memory to save to components */
 		rc = vector_create(&communication_list.components,
-				comm_len, sizeof(struct component));
+				(comm_len > 0 ? comm_len : 1),
+				sizeof(struct component));
 		debug_if(rc)
 			goto err_compvector_create;
 
@@ -768,11 +771,13 @@ static int mpi_working_function(struct processor_data *pdata, int *dims)
 //		fprintf(stdout, "\nborder from rank %d:\n", comm_rank);
 //		print_border(communication_border, target_dimension);
 
-		rc = find_common_components(pdata->comp_list,
-				&communication_list, compare_border,
-				send_border, communication_border);
-		debug_if(rc)
-			goto err_find_comcomp;
+		if(comm_len) {
+			rc = find_common_components(pdata->comp_list,
+					&communication_list, compare_border,
+					send_border, communication_border);
+			debug_if(rc)
+				goto err_find_comcomp;
+		}
 	}
 
 	/*

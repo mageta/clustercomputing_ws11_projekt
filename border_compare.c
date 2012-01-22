@@ -564,6 +564,14 @@ int find_common_components(struct component_list *own_compl,
 	vector_type *merged_own = NULL;
 	vector_type *idx_mergedown_m = NULL;
 
+	if(own_compl->components->elements == 0) {
+		vector_destroy(own_compl->components);
+
+		own_compl->components = communication_compl->components;
+		communication_compl->components = NULL;
+		return 0;
+	}
+
 	rc = __init_composite_vectors(matrix_size(alien_border) / 2.5,
 			&merged_alien, &idx_mergedalien_m,
 			&merged_own, &idx_mergedown_m);
