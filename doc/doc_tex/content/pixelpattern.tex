@@ -1,6 +1,6 @@
 \label{pixelpattern}
 
-Neben dem eigentlichen Hauptprogramm wurde außerdem eine Generator entwickelt, der genutzt werden kann, um zufällige Eingabe-Matrizen für das Hauptprogramm zu erzeugen. Dieser soll hier nicht im vollen Umfang beschrieben werden, aber die nötigen Einstellungen, um die generierten Muster anzupassen.
+Neben dem eigentlichen Hauptprogramm wurde außerdem ein Generator entwickelt, der genutzt werden kann, um zufällige Eingabe-Matrizen für das Hauptprogramm zu erzeugen. Dieser soll hier nicht im vollen Umfang beschrieben werden, aber die nötigen Einstellungen, um die generierten Muster anzupassen.
 
 Die Implementierung des Generators befindet sich in:
 
@@ -13,7 +13,7 @@ Der Generator wird mit der Größe der zu generierenden Matrix aufgerufen. Die P
 \begin{itemize}
 	\item \textsl{\textbf{filling:}} zu welchem Grad die Matrix mit schwarzen Pixel gefüllt werden soll (es kann bei hohen Graden vorkommen, dass der Generator früher abbricht).
 	\item \textsl{\textbf{failcount:}} wenn der Generator eine neue Komponente anlegen will, sucht er eine zufällige Position in der zu dem Zeitpunkt vorhandenen Matrix, falls diese Position zu nah an einer bereits vorhandenen Komponente liegen sollte, wird erneut eine Postion gewählt. Dieser Vorgang bricht ab, sobald der \verb+failcount+ erreicht ist.
-	\item \textsl{\textbf{bulginess:}} gibt die Form der Komponenten an, je größer die Zahl ist, desto wahrscheinlicher ist es, dass die Komponente ein "`Pixelhaufen"' wird. Hängt auch von der \verb+dist+ ab)
+	\item \textsl{\textbf{bulginess:}} gibt die Form der Komponenten an, je größer die Zahl ist, desto wahrscheinlicher ist es, dass die Komponente ein "`Pixelhaufen"' wird. (Hängt auch von der \verb+dist+ ab)
 	\item \textsl{\textbf{dist:}} gibt an, wie viele Pixel zwei Komponenten mindestens entfernt sein müssen.
 	\item \textsl{\textbf{size:}} beeinflusst, wie groß eine Komponente durchschnittlich werden soll. Je kleiner diese Zahl wird, desto größer werden die Komponenten. Bsp.: wenn \verb+size = 1+ ist, dann reduziert sich die Wahrscheinlichkeit, das eine Komponente um einen Pixel erweitert wird je bereits vorhandenem Pixel um $1\%$.
 \end{itemize}
@@ -34,4 +34,4 @@ main(int argc, char ** argv)
 [...]
 \end{lstlisting}
 
-dann würden Matrizen generiert, die annähernd zu einem viertel mit schwarzen Pixeln gefüllt sind, dabei würde der Generator erst nach 500 Fehlversuchen, eine neue Komponente zu platzieren, abbrechen. Die generierten Komponenten werden wahrscheinlich keine große Anhäufungen von direkt nebeneinander liegenden Pixeln enthalten. Sie werden mindestens 1 Pixel voneinander entfernt sein und durchschnittlich 10 Pixel groß (nach 10 Pixeln sinkt die wahrscheinlich eines neuen Pixels auf $50\%$).
+dann würden Matrizen generiert, die annähernd zu einem Viertel mit schwarzen Pixeln gefüllt sind, dabei würde der Generator erst nach 500 Fehlversuchen, eine neue Komponente zu platzieren, abbrechen. Die generierten Komponenten würden wahrscheinlich keine große Anhäufungen von direkt nebeneinanderliegenden Pixeln enthalten. Sie würden mindestens 1 Pixel voneinander entfernt sein und durchschnittlich 10 Pixel groß (nach 10 Pixeln sinkt die Wahrscheinlichkeit eines neuen Pixels auf $50\%$).
