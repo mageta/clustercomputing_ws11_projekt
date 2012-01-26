@@ -1,0 +1,14 @@
+Die bearbeitete Aufgabe entspricht der zweiten der zur Verfügung stehenden Aufgaben: \textit{Zusammenhängende Komponenten}.
+
+Zum Programmstart wird einen Matrix mit schwarzen und weißen Feldern gegeben (jedes Feld der Matrix kann als Pixel auf einem Bild aufgefasst werden). Ziel der Programms ist es, alle maximalen zusammenhängenden schwarzen Komponenten (eine Gruppe von schwarzen Feldern) zu finden. Eine Komponente ist dann Zusammenhängende und Maximal, wenn es in den umgebenden Feldern (direkt angrenzent) keine weiteren schwarzen Felder mehr gibt. Eine genaue Definition ist in der ausgegebenen Aufgabenstellung zu finden.
+
+Ausgeben soll das Programm alle gefundenen maximalen schwarzen Komponenten, ihre Größe und eine exemplarische Koordinate in der Matrix (um sie z.B. lokalisieren zu können).
+
+Ein Beispiel ist in Abb. \ref{fig:inputbsp} auf Seite \pageref{fig:inputbsp} zu sehen. In der angegebenen Matrix sind 4 maximale schwarze Komponenten mit den Größen 5, 5, 7 und 8. Exemplarische Koordinaten für die Komponenten sind $\{(0, 1), (5, 1), (1, 7), (1, 11)\}$ (beschrieben als Matrix-Indexe, nicht als kartesische Koordinaten).
+
+\begin{figure}[tbhp]
+	\centering
+	\includegraphics[width=0.7\textwidth]{images/inputbsp.eps}
+	\caption{Beispiel für eine Eingabe für das Programm}
+	\label{fig:inputbsp}
+\end{figure}

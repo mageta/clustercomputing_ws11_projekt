@@ -49,10 +49,6 @@ struct processor_data {
 	int topo_size;
 	int coords[COMM_DIMS];
 
-	/*
-	 * contains 'struct component_list' see comment of transform_clist()
-	 */
-//	list_type *component_lists;
 	struct component_list *comp_list;
 	vector_type *borders;
 	matrix_type *matrix;

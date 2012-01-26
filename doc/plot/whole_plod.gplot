@@ -1,0 +1,17 @@
+set output "whole_plod.eps"
+set terminal postscript eps color
+
+set title 'Gesamtdauer einer Komponenten-Analyse bei x Knoten'
+
+set yrange [20:80]
+set xrange [0:10]
+set xlabel 'Cluster-Nodes [Anzahl]'
+set ylabel 'Zeit bis das Ergebnis vorliegt [s]'
+set grid
+
+f(x)=a*x**2+b*x**1+c
+fit f(x) 'whole_plod.dat' using 1:2 via a, b, c
+
+plot 'whole_plod.dat' using 1:2 with points title "Messdaten", \
+	'whole_plod.dat' using 1:2 smooth csplines title "Interpolation" with lines, \
+	f(x) title "Approximation mit a*x^2 + b*x^1 + c"

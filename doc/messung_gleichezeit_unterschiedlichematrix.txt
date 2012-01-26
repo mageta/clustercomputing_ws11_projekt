@@ -1,0 +1,90 @@
+bblock@simson20 ~/src/cc/projekt $ (for i in $(seq 1 10); do echo $i; ./test_script.sh || { ./test_script failed; exit 1; }; done)1
+pixelpattern 1024 1024
+components: 30885 .comp.1.txt
+find_components 'patternx.txt' '.comp.4.txt'
+0: distribute-phase 0.353153s, find-phsae 0.204593s, border-phase 0.220579s, whole-phase 0.778325s
+1: distribute-phase 0.353779s, find-phsae 0.424041s, border-phase 0.017798s, whole-phase 0.795618s
+2: distribute-phase 0.353158s, find-phsae 0.250852s, border-phase 0.224008s, whole-phase 0.828018s
+3: distribute-phase 0.353181s, find-phsae 0.232761s, border-phase 0.301240s, whole-phase 0.887182s
+finished successful
+2
+pixelpattern 1024 1024
+components: 30986 .comp.1.txt
+find_components 'patternx.txt' '.comp.4.txt'
+0: distribute-phase 0.387684s, find-phsae 0.252332s, border-phase 0.321540s, whole-phase 0.961556s
+1: distribute-phase 0.387736s, find-phsae 0.573285s, border-phase 0.010008s, whole-phase 0.971029s
+2: distribute-phase 0.387721s, find-phsae 0.296213s, border-phase 0.316674s, whole-phase 1.000608s
+3: distribute-phase 0.387722s, find-phsae 0.226033s, border-phase 0.449501s, whole-phase 1.063256s
+finished successful
+3
+pixelpattern 1024 1024
+components: 29777 .comp.1.txt
+find_components 'patternx.txt' '.comp.4.txt'
+0: distribute-phase 0.299014s, find-phsae 0.208882s, border-phase 0.144091s, whole-phase 0.651987s
+1: distribute-phase 0.299124s, find-phsae 0.352204s, border-phase 0.008360s, whole-phase 0.659688s
+2: distribute-phase 0.299039s, find-phsae 0.255017s, border-phase 0.135120s, whole-phase 0.689176s
+3: distribute-phase 0.299044s, find-phsae 0.235862s, border-phase 0.212784s, whole-phase 0.747690s
+finished successful
+4
+pixelpattern 1024 1024
+components: 29622 .comp.1.txt
+find_components 'patternx.txt' '.comp.4.txt'
+0: distribute-phase 0.393843s, find-phsae 0.207475s, border-phase 0.068026s, whole-phase 0.669344s
+1: distribute-phase 0.393873s, find-phsae 0.275042s, border-phase 0.009107s, whole-phase 0.678022s
+2: distribute-phase 0.393873s, find-phsae 0.215490s, border-phase 0.087541s, whole-phase 0.696904s
+3: distribute-phase 0.393876s, find-phsae 0.244312s, border-phase 0.105471s, whole-phase 0.743659s
+finished successful
+5
+pixelpattern 1024 1024
+components: 28972 .comp.1.txt
+find_components 'patternx.txt' '.comp.4.txt'
+0: distribute-phase 0.297667s, find-phsae 0.204141s, border-phase 0.142230s, whole-phase 0.644038s
+1: distribute-phase 0.297708s, find-phsae 0.345789s, border-phase 0.010465s, whole-phase 0.653962s
+2: distribute-phase 0.297654s, find-phsae 0.237408s, border-phase 0.149278s, whole-phase 0.684340s
+3: distribute-phase 0.297666s, find-phsae 0.222819s, border-phase 0.226747s, whole-phase 0.747232s
+finished successful
+6
+pixelpattern 1024 1024
+components: 30276 .comp.1.txt
+find_components 'patternx.txt' '.comp.4.txt'
+0: distribute-phase 0.291165s, find-phsae 0.205472s, border-phase 0.163589s, whole-phase 0.660226s
+1: distribute-phase 0.291173s, find-phsae 0.368521s, border-phase 0.020859s, whole-phase 0.680553s
+2: distribute-phase 0.291192s, find-phsae 0.256268s, border-phase 0.162144s, whole-phase 0.709604s
+3: distribute-phase 0.291193s, find-phsae 0.231787s, border-phase 0.243758s, whole-phase 0.766738s
+finished successful
+7
+pixelpattern 1024 1024
+components: 30718 .comp.1.txt
+find_components 'patternx.txt' '.comp.4.txt'
+0: distribute-phase 0.265842s, find-phsae 0.209575s, border-phase 0.109832s, whole-phase 0.585249s
+1: distribute-phase 0.265862s, find-phsae 0.318901s, border-phase 0.010004s, whole-phase 0.594767s
+2: distribute-phase 0.265866s, find-phsae 0.300638s, border-phase 0.046945s, whole-phase 0.613449s
+3: distribute-phase 0.265871s, find-phsae 0.280008s, border-phase 0.103363s, whole-phase 0.649242s
+finished successful
+8
+pixelpattern 1024 1024
+components: 29846 .comp.1.txt
+find_components 'patternx.txt' '.comp.4.txt'
+0: distribute-phase 0.350621s, find-phsae 0.204878s, border-phase 0.086721s, whole-phase 0.642220s
+1: distribute-phase 0.350666s, find-phsae 0.291150s, border-phase 0.009498s, whole-phase 0.651314s
+2: distribute-phase 0.350668s, find-phsae 0.276504s, border-phase 0.042756s, whole-phase 0.669928s
+3: distribute-phase 0.350661s, find-phsae 0.258516s, border-phase 0.103269s, whole-phase 0.712446s
+finished successful
+9
+pixelpattern 1024 1024
+components: 29563 .comp.1.txt
+find_components 'patternx.txt' '.comp.4.txt'
+0: distribute-phase 0.278285s, find-phsae 0.209819s, border-phase 0.119395s, whole-phase 0.607499s
+1: distribute-phase 0.278297s, find-phsae 0.328765s, border-phase 0.009209s, whole-phase 0.616271s
+2: distribute-phase 0.278296s, find-phsae 0.277079s, border-phase 0.081218s, whole-phase 0.636593s
+3: distribute-phase 0.278306s, find-phsae 0.260129s, border-phase 0.156596s, whole-phase 0.695031s
+finished successful
+10
+pixelpattern 1024 1024
+components: 30610 .comp.1.txt
+find_components 'patternx.txt' '.comp.4.txt'
+0: distribute-phase 0.268322s, find-phsae 0.206218s, border-phase 0.077424s, whole-phase 0.551964s
+1: distribute-phase 0.268281s, find-phsae 0.283133s, border-phase 0.010459s, whole-phase 0.561873s
+2: distribute-phase 0.268320s, find-phsae 0.280071s, border-phase 0.032804s, whole-phase 0.581195s
+3: distribute-phase 0.268319s, find-phsae 0.263007s, border-phase 0.084423s, whole-phase 0.615749s
+finished successful

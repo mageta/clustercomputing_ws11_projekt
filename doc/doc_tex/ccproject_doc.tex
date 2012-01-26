@@ -1,0 +1,115 @@
+% \documentclass[a4paper,11pt,oneside,notitlepage,pagesize,headsepline,footnosepline,parskip]{scrartcl}
+
+%Schriftgröße, Layout, Papierformat, Art des Dokumentes
+\documentclass[11pt,oneside,a4paper,parskip]{scrartcl}
+
+%Einstellungen der Seitenränder
+\usepackage[left=3cm,right=2cm,top=1cm,bottom=2cm,includeheadfoot]{geometry}
+
+%neue Rechtschreibung
+\usepackage[german]{babel}
+
+%Umlaute ermöglichen
+\usepackage[utf8x]{inputenc}
+
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{amsthm}
+\usepackage{caption}
+\usepackage{multicol}
+\usepackage{subfigure}
+\usepackage{xcolor}
+\usepackage{fontenc}
+\usepackage{graphicx}
+\usepackage{epstopdf}
+
+\usepackage{setspace}
+\usepackage{fancyvrb}
+\usepackage{tabularx}
+
+\usepackage{float}
+
+% \usepackage{times}
+% \usepackage[T1]{fontenc}
+
+\usepackage{enumitem}
+
+\author{Sebastian Nuck, Benjamin Block}
+\title{Semesterprojekt Cluster-Computing}
+\subtitle{Dokumentation}
+\date{\today}
+
+%Kopf- und Fußzeile
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+
+%Kopfzeile links bzw. innen
+\fancyhead[L]{\nouppercase{\leftmark}}
+%Kopfzeile rechts bzw. außen
+\fancyhead[R]{Sebastian Nuck, Benjamin Block}
+%Linie oben
+\renewcommand{\headrulewidth}{0.5pt}
+
+%Fußzeile mittig
+\fancyfoot[C]{\thepage}
+%Linie unten
+\renewcommand{\footrulewidth}{0pt}
+
+\usepackage{listings}
+\lstset{
+        basicstyle=\small\ttfamily, % Standardschrift
+        numbers=left,               % Ort der Zeilennummern
+        numberstyle=\tiny,          % Stil der Zeilennummern
+        stepnumber=1,               % Abstand zwischen den Zeilennummern
+        numbersep=5pt,              % Abstand der Nummern zum Text
+        tabsize=4,                  % Groesse von Tabs
+        extendedchars=true,         %
+        breaklines=true,            % Zeilen werden Umgebrochen
+        keywordstyle=[1]\textbf,    % Stil der Keywords
+        keywordstyle=[2]\textbf,    %
+        keywordstyle=[3]\textbf,    %
+        keywordstyle=[4]\textbf,    %
+        stringstyle=\color{stringcolor}, % Farbe der String
+        showspaces=false,           % Leerzeichen anzeigen ?
+        showtabs=false,             % Tabs anzeigen ?
+        showstringspaces=false,      % Leerzeichen in Strings anzeigen ?
+        framexleftmargin=5mm, frame=shadowbox, rulesepcolor=\color{black}
+}
+\lstloadlanguages{% Check Dokumentation for further languages ...
+	bash,
+	[ANSI]C
+}
+
+\begin{document}
+\setlist{itemsep=0pt,topsep=2pt,parsep=2pt}
+
+\maketitle
+\tableofcontents
+
+\section{Projektaufgabe}
+
+\input{content/aufgabe.tex}
+
+\section{Aufbau des Programms}
+
+\input{content/aufbau.tex}
+
+\section{Algorithmen}
+
+\input{content/algorithmen.tex}
+
+\section{Bemerkungen}
+
+\input{content/schwierigkeiten.tex}
+
+\section{Laufzeitanalyse}
+
+\input{content/laufzeit.tex}
+
+\section{Pixelpattern-Generator}
+
+\input{content/pixelpattern.tex}
+
+\end{document}

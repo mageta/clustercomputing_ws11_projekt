@@ -3,7 +3,7 @@
 # valgrind -v --leak-check=full --track-origins=yes --leak-resolution=high $* &> mpi_output.${LAMRANK}
 # valgrind --tool=exp-sgcheck $* &> mpi_output.${LAMRANK}
 
-if [[ "$LAMRANK" == "1" ]]; then
+if [[ "$LAMRANK" == "5" ]]; then
 	ddd $* &> mpi_output.${LAMRANK}
 #	valgrind $* &> mpi_output.${LAMRANK}
 else
