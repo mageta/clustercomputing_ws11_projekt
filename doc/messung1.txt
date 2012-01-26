@@ -1,0 +1,21 @@
+bblock@simson20 ~/src/cc/projekt $ (for i in $(seq 1 10); do echo $i; mpirun -np 1 ./find_components pattern_bigc_8192.txt 1>/dev/null || { ./find_components failed; exit 1; }; done)
+1
+0: distribute-phase 15.885305s, find-phsae 56.616360s, border-phase 0.167053s, whole-phase 72.668718s
+2
+0: distribute-phase 15.921614s, find-phsae 52.619797s, border-phase 0.084125s, whole-phase 68.625536s
+3
+0: distribute-phase 15.904123s, find-phsae 53.195333s, border-phase 0.163101s, whole-phase 69.262557s
+4
+0: distribute-phase 16.168860s, find-phsae 52.937053s, border-phase 0.087793s, whole-phase 69.193706s
+5
+0: distribute-phase 15.872241s, find-phsae 54.920601s, border-phase 0.192199s, whole-phase 70.985041s
+6
+0: distribute-phase 15.782832s, find-phsae 53.238243s, border-phase 0.121852s, whole-phase 69.142927s
+7
+0: distribute-phase 15.885377s, find-phsae 54.199186s, border-phase 0.163925s, whole-phase 70.248488s
+8
+0: distribute-phase 15.843736s, find-phsae 53.048638s, border-phase 0.085110s, whole-phase 68.977484s
+9
+0: distribute-phase 15.795276s, find-phsae 54.455317s, border-phase 0.166483s, whole-phase 70.417076s
+10
+0: distribute-phase 15.810154s, find-phsae 53.338241s, border-phase 0.089626s, whole-phase 69.238021s

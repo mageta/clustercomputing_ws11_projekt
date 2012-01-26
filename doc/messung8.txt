@@ -1,0 +1,91 @@
+bblock@simson20 ~/src/cc/projekt $ (for i in $(seq 1 10); do echo $i; mpirun -np 8 ./find_components pattern_bigc_8192.txt 1>/dev/null || { ./find_components failed; exit 1; }; done)
+1
+0: distribute-phase 12.125408s, find-phsae 6.434561s, border-phase 0.594951s, whole-phase 19.154920s
+1: distribute-phase 12.125264s, find-phsae 7.019836s, border-phase 0.408504s, whole-phase 19.553604s
+2: distribute-phase 12.125411s, find-phsae 6.400693s, border-phase 1.948777s, whole-phase 20.474881s
+3: distribute-phase 12.125315s, find-phsae 6.451559s, border-phase 3.374033s, whole-phase 21.950907s
+4: distribute-phase 12.125364s, find-phsae 6.535097s, border-phase 5.340862s, whole-phase 24.001323s
+5: distribute-phase 12.125173s, find-phsae 6.384637s, border-phase 7.997647s, whole-phase 26.507457s
+6: distribute-phase 12.125454s, find-phsae 6.449830s, border-phase 10.944057s, whole-phase 29.519341s
+7: distribute-phase 12.125350s, find-phsae 6.386289s, border-phase 14.612288s, whole-phase 33.123927s
+2
+0: distribute-phase 12.156462s, find-phsae 6.436139s, border-phase 0.659283s, whole-phase 19.251884s
+1: distribute-phase 12.156661s, find-phsae 7.080816s, border-phase 0.335809s, whole-phase 19.573286s
+2: distribute-phase 12.156500s, find-phsae 6.523900s, border-phase 1.822606s, whole-phase 20.503006s
+3: distribute-phase 12.156694s, find-phsae 6.439515s, border-phase 3.346432s, whole-phase 21.942641s
+4: distribute-phase 12.156459s, find-phsae 6.562330s, border-phase 5.255745s, whole-phase 23.974534s
+5: distribute-phase 12.156570s, find-phsae 6.377019s, border-phase 8.197512s, whole-phase 26.731101s
+6: distribute-phase 12.156536s, find-phsae 6.432569s, border-phase 11.183395s, whole-phase 29.772500s
+7: distribute-phase 12.156732s, find-phsae 6.440184s, border-phase 14.764638s, whole-phase 33.361554s
+3
+0: distribute-phase 12.174326s, find-phsae 6.412015s, border-phase 0.994270s, whole-phase 19.580611s
+1: distribute-phase 12.174505s, find-phsae 7.396199s, border-phase 0.352852s, whole-phase 19.923556s
+2: distribute-phase 12.174360s, find-phsae 6.377435s, border-phase 2.298204s, whole-phase 20.849999s
+3: distribute-phase 12.174540s, find-phsae 6.448339s, border-phase 3.710747s, whole-phase 22.333626s
+4: distribute-phase 12.174308s, find-phsae 6.487532s, border-phase 5.705734s, whole-phase 24.367574s
+5: distribute-phase 12.174400s, find-phsae 6.438957s, border-phase 8.261342s, whole-phase 26.874699s
+6: distribute-phase 12.174393s, find-phsae 6.491547s, border-phase 11.464091s, whole-phase 30.130031s
+7: distribute-phase 12.174594s, find-phsae 6.417894s, border-phase 15.136008s, whole-phase 33.728496s
+4
+0: distribute-phase 12.257717s, find-phsae 6.420716s, border-phase 1.427003s, whole-phase 20.105436s
+1: distribute-phase 12.257889s, find-phsae 7.838873s, border-phase 0.368662s, whole-phase 20.465424s
+2: distribute-phase 12.257755s, find-phsae 6.433025s, border-phase 2.723837s, whole-phase 21.414617s
+3: distribute-phase 12.257885s, find-phsae 6.430629s, border-phase 4.249174s, whole-phase 22.937688s
+4: distribute-phase 12.257726s, find-phsae 6.531367s, border-phase 6.169161s, whole-phase 24.958254s
+5: distribute-phase 12.257799s, find-phsae 6.377849s, border-phase 8.831599s, whole-phase 27.467247s
+6: distribute-phase 12.257769s, find-phsae 6.474135s, border-phase 11.761273s, whole-phase 30.493177s
+7: distribute-phase 12.257929s, find-phsae 6.453752s, border-phase 15.417686s, whole-phase 34.129367s
+5
+0: distribute-phase 12.304675s, find-phsae 6.419865s, border-phase 0.572822s, whole-phase 19.297362s
+1: distribute-phase 12.304845s, find-phsae 6.982714s, border-phase 0.325418s, whole-phase 19.612977s
+2: distribute-phase 12.304693s, find-phsae 6.405661s, border-phase 1.849289s, whole-phase 20.559643s
+3: distribute-phase 12.304881s, find-phsae 6.406066s, border-phase 3.278569s, whole-phase 21.989516s
+4: distribute-phase 12.304665s, find-phsae 6.561140s, border-phase 5.135782s, whole-phase 24.001587s
+5: distribute-phase 12.304760s, find-phsae 6.416494s, border-phase 7.788113s, whole-phase 26.509367s
+6: distribute-phase 12.304716s, find-phsae 6.426905s, border-phase 10.803333s, whole-phase 29.534954s
+7: distribute-phase 12.304934s, find-phsae 6.438717s, border-phase 14.358004s, whole-phase 33.101655s
+6
+0: distribute-phase 12.314465s, find-phsae 6.413152s, border-phase 0.490422s, whole-phase 19.218039s
+1: distribute-phase 12.314651s, find-phsae 6.893981s, border-phase 0.329885s, whole-phase 19.538517s
+2: distribute-phase 12.314496s, find-phsae 6.397229s, border-phase 1.774880s, whole-phase 20.486605s
+3: distribute-phase 12.314677s, find-phsae 6.430650s, border-phase 3.276094s, whole-phase 22.021421s
+4: distribute-phase 12.314451s, find-phsae 6.538952s, border-phase 5.178909s, whole-phase 24.032312s
+5: distribute-phase 12.314558s, find-phsae 6.371436s, border-phase 7.856912s, whole-phase 26.542906s
+6: distribute-phase 12.314523s, find-phsae 6.468914s, border-phase 10.754065s, whole-phase 29.537502s
+7: distribute-phase 12.314730s, find-phsae 6.397714s, border-phase 14.441502s, whole-phase 33.153946s
+7
+0: distribute-phase 12.504348s, find-phsae 6.460101s, border-phase 0.634084s, whole-phase 19.598533s
+1: distribute-phase 12.504522s, find-phsae 7.084301s, border-phase 0.323894s, whole-phase 19.912717s
+2: distribute-phase 12.504349s, find-phsae 6.410588s, border-phase 1.933087s, whole-phase 20.848024s
+3: distribute-phase 12.504561s, find-phsae 6.392960s, border-phase 3.468535s, whole-phase 22.366056s
+4: distribute-phase 12.504323s, find-phsae 6.547665s, border-phase 5.323216s, whole-phase 24.375204s
+5: distribute-phase 12.504423s, find-phsae 6.410723s, border-phase 7.967441s, whole-phase 26.882587s
+6: distribute-phase 12.504387s, find-phsae 6.455974s, border-phase 10.925164s, whole-phase 29.885525s
+7: distribute-phase 12.504609s, find-phsae 6.384966s, border-phase 14.595864s, whole-phase 33.485439s
+8
+0: distribute-phase 12.323687s, find-phsae 6.421617s, border-phase 1.038326s, whole-phase 19.783630s
+1: distribute-phase 12.323862s, find-phsae 7.449319s, border-phase 0.327863s, whole-phase 20.101044s
+2: distribute-phase 12.323715s, find-phsae 6.402367s, border-phase 2.310832s, whole-phase 21.036914s
+3: distribute-phase 12.323892s, find-phsae 6.437004s, border-phase 3.793881s, whole-phase 22.554777s
+4: distribute-phase 12.323690s, find-phsae 6.501040s, border-phase 5.743877s, whole-phase 24.568607s
+5: distribute-phase 12.323770s, find-phsae 6.550447s, border-phase 8.211173s, whole-phase 27.085390s
+6: distribute-phase 12.323765s, find-phsae 6.490385s, border-phase 11.290110s, whole-phase 30.104260s
+7: distribute-phase 12.323936s, find-phsae 6.447361s, border-phase 14.924507s, whole-phase 33.695804s
+9
+0: distribute-phase 12.331316s, find-phsae 6.414261s, border-phase 0.785319s, whole-phase 19.530896s
+1: distribute-phase 12.331456s, find-phsae 7.190591s, border-phase 0.329080s, whole-phase 19.851127s
+2: distribute-phase 12.331335s, find-phsae 6.380391s, border-phase 2.096723s, whole-phase 20.808449s
+3: distribute-phase 12.331496s, find-phsae 6.459425s, border-phase 3.552165s, whole-phase 22.343086s
+4: distribute-phase 12.331301s, find-phsae 6.542965s, border-phase 5.485705s, whole-phase 24.359971s
+5: distribute-phase 12.331363s, find-phsae 6.445241s, border-phase 8.095720s, whole-phase 26.872324s
+6: distribute-phase 12.331344s, find-phsae 6.433781s, border-phase 11.107572s, whole-phase 29.872697s
+7: distribute-phase 12.331549s, find-phsae 6.461578s, border-phase 14.685103s, whole-phase 33.478230s
+10
+0: distribute-phase 12.305359s, find-phsae 6.433214s, border-phase 0.835128s, whole-phase 19.573701s
+1: distribute-phase 12.305556s, find-phsae 7.258319s, border-phase 0.326974s, whole-phase 19.890849s
+2: distribute-phase 12.305391s, find-phsae 6.417937s, border-phase 2.112343s, whole-phase 20.835671s
+3: distribute-phase 12.305586s, find-phsae 6.377256s, border-phase 3.743228s, whole-phase 22.426070s
+4: distribute-phase 12.305345s, find-phsae 6.506272s, border-phase 5.629009s, whole-phase 24.440626s
+5: distribute-phase 12.305453s, find-phsae 6.463001s, border-phase 8.197625s, whole-phase 26.966079s
+6: distribute-phase 12.305430s, find-phsae 6.441025s, border-phase 11.226871s, whole-phase 29.973326s
+7: distribute-phase 12.305640s, find-phsae 6.424733s, border-phase 14.839644s, whole-phase 33.570017s

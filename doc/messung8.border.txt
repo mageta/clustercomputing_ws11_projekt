@@ -1,0 +1,87 @@
+bblock@simson20 ~/src/cc/projekt $ (for i in $(seq 1 10); do echo $i; mpirun -np 8 ./find_components pattern_bigc_8192.txt 1>/dev/null || { ./find_components failed; exit 1; }; done)
+1
+0: bctime 0.000000, whole 0.902803
+0: distribute-phase 11.963272s, find-phsae 6.460624s, border-phase 0.903762s, whole-phase 19.327658s
+1: bctime 0.299035, whole 0.332447
+1: distribute-phase 11.963427s, find-phsae 7.353512s, border-phase 0.333604s, whole-phase 19.650543s
+2: bctime 0.879405, whole 1.169132
+2: distribute-phase 11.963278s, find-phsae 7.433190s, border-phase 1.170016s, whole-phase 20.566484s
+3: bctime 1.439766, whole 3.581418
+3: distribute-phase 11.963452s, find-phsae 6.505790s, border-phase 3.582299s, whole-phase 22.051541s
+4: bctime 1.949169, whole 5.624045
+4: distribute-phase 11.963231s, find-phsae 6.467369s, border-phase 5.625475s, whole-phase 24.056075s
+5: bctime 2.467997, whole 8.159620
+5: distribute-phase 11.963333s, find-phsae 6.466114s, border-phase 8.161547s, whole-phase 26.590994s
+6: bctime 2.986184, whole 10.224119
+6: distribute-phase 11.963316s, find-phsae 7.463499s, border-phase 10.226300s, whole-phase 29.653115s
+7: bctime 3.484781, whole 14.682714
+7: distribute-phase 11.963499s, find-phsae 6.491386s, border-phase 14.792390s, whole-phase 33.247275s
+2
+0: bctime 0.000000, whole 0.886905
+0: distribute-phase 12.021055s, find-phsae 6.467700s, border-phase 0.887748s, whole-phase 19.376503s
+1: bctime 0.289974, whole 0.323421
+1: distribute-phase 12.021206s, find-phsae 7.345409s, border-phase 0.324248s, whole-phase 19.690863s
+2: bctime 0.911201, whole 1.119107
+2: distribute-phase 12.021070s, find-phsae 7.497002s, border-phase 1.120121s, whole-phase 20.638193s
+3: bctime 1.409549, whole 3.595112
+3: distribute-phase 12.021238s, find-phsae 6.475322s, border-phase 3.595969s, whole-phase 22.092529s
+4: bctime 1.946881, whole 5.518416
+4: distribute-phase 12.021029s, find-phsae 6.554196s, border-phase 5.520067s, whole-phase 24.095292s
+5: bctime 2.463323, whole 8.100642
+5: distribute-phase 12.021121s, find-phsae 6.504472s, border-phase 8.102287s, whole-phase 26.627880s
+6: bctime 2.977685, whole 10.235541
+6: distribute-phase 12.021099s, find-phsae 7.422239s, border-phase 10.237623s, whole-phase 29.680961s
+7: bctime 3.476354, whole 14.670253
+7: distribute-phase 12.021287s, find-phsae 6.466015s, border-phase 14.784990s, whole-phase 33.272292s
+3
+0: bctime 0.000000, whole 0.911948
+0: distribute-phase 12.030109s, find-phsae 6.484084s, border-phase 0.913037s, whole-phase 19.427230s
+1: bctime 0.298775, whole 0.351287
+1: distribute-phase 12.030273s, find-phsae 7.386161s, border-phase 0.352213s, whole-phase 19.768647s
+2: bctime 0.874695, whole 0.929502
+2: distribute-phase 12.030122s, find-phsae 7.717206s, border-phase 0.930365s, whole-phase 20.677693s
+3: bctime 1.388114, whole 3.556840
+3: distribute-phase 12.030297s, find-phsae 6.524256s, border-phase 3.557752s, whole-phase 22.112305s
+4: bctime 1.967589, whole 5.502884
+4: distribute-phase 12.030091s, find-phsae 6.600445s, border-phase 5.504392s, whole-phase 24.134928s
+5: bctime 2.448034, whole 8.098494
+5: distribute-phase 12.030191s, find-phsae 6.523931s, border-phase 8.100266s, whole-phase 26.654388s
+6: bctime 2.966194, whole 10.117345
+6: distribute-phase 12.030164s, find-phsae 7.546717s, border-phase 10.119088s, whole-phase 29.695969s
+7: bctime 3.495517, whole 14.644305
+7: distribute-phase 12.030350s, find-phsae 6.517219s, border-phase 14.754083s, whole-phase 33.301652s
+4
+0: bctime 0.000000, whole 0.959408
+0: distribute-phase 12.041356s, find-phsae 6.463859s, border-phase 0.960323s, whole-phase 19.465538s
+1: bctime 0.285942, whole 0.322828
+1: distribute-phase 12.041542s, find-phsae 7.414420s, border-phase 0.323626s, whole-phase 19.779588s
+2: bctime 0.908345, whole 1.179400
+2: distribute-phase 12.041391s, find-phsae 7.502582s, border-phase 1.180286s, whole-phase 20.724259s
+3: bctime 1.423288, whole 3.617956
+3: distribute-phase 12.041578s, find-phsae 6.534948s, border-phase 3.618769s, whole-phase 22.195295s
+4: bctime 1.972484, whole 5.645970
+4: distribute-phase 12.041342s, find-phsae 6.534287s, border-phase 5.647638s, whole-phase 24.223267s
+5: bctime 2.443105, whole 8.220524
+5: distribute-phase 12.041455s, find-phsae 6.471936s, border-phase 8.222298s, whole-phase 26.735689s
+6: bctime 3.006546, whole 10.304033
+6: distribute-phase 12.041419s, find-phsae 7.471444s, border-phase 10.306109s, whole-phase 29.818972s
+7: bctime 3.471820, whole 14.754229
+7: distribute-phase 12.041623s, find-phsae 6.495008s, border-phase 14.875936s, whole-phase 33.412567s
+5
+0: bctime 0.000000, whole 1.822629
+0: distribute-phase 12.047441s, find-phsae 6.512346s, border-phase 1.823470s, whole-phase 20.383257s
+1: bctime 0.406648, whole 0.443799
+1: distribute-phase 12.047601s, find-phsae 8.325383s, border-phase 0.444516s, whole-phase 20.817500s
+2: bctime 0.912762, whole 2.269105
+2: distribute-phase 12.047463s, find-phsae 7.445925s, border-phase 2.270044s, whole-phase 21.763432s
+3: bctime 1.500307, whole 4.723818
+3: distribute-phase 12.047645s, find-phsae 6.536926s, border-phase 4.724708s, whole-phase 23.309279s
+4: bctime 1.953253, whole 6.702756
+4: distribute-phase 12.047430s, find-phsae 6.568781s, border-phase 6.704399s, whole-phase 25.320610s
+5: bctime 2.440399, whole 9.311623
+5: distribute-phase 12.047506s, find-phsae 6.468585s, border-phase 9.313425s, whole-phase 27.829516s
+6: bctime 2.969501, whole 11.317196
+6: distribute-phase 12.047506s, find-phsae 7.507374s, border-phase 11.319068s, whole-phase 30.873948s
+7: bctime 3.500861, whole 15.798245
+7: distribute-phase 12.047693s, find-phsae 6.529878s, border-phase 15.909203s, whole-phase 34.486774s
+

@@ -1,0 +1,32 @@
+Zu einiges Teilen des Programms gibt es Besonderheiten zu beachten:
+
+\subsection{MPI-Topologie}
+
+Bei der Verteilung der Matrix und der Ergebnisse der Erkennungs-Phase wird eine MPI-Topologie verwendet. Diese ist bei der simplen Aufteilung der Matrix nicht unbedingt nötig. Es war zu Anfang der Implementierung aber die Möglichkeit geplant, die Matrix nicht nur eindimensional zu teile, sondern zweidimensional, dafür wäre die Topologie sehr nützlich. Diese Möglichkeit wurde aber im laufe der Implementierung verworfen, da dadurch die Ermittlung von gemeinsamen Komponenten erheblich komplexer werden würde und damit wesentlich mehr Zeit benötigen würde. In diesem Fall lassen sich Beispiele konstruieren, in denen es nicht mehr ausreicht nur die Ränder der Teil-Matrizen zu vergleichen, man müsste auch die Entstehungs-Geschichte der Komponenten in der Vergangenheit beachten.
+
+\begin{figure}[tbhp]
+	\centering
+	\includegraphics[width=0.45\textwidth]{images/bordercompare_illegal}
+	\caption{Beispiel für eine Matrize die bei zweidimensionaler Einteilung zu falschen Ergebnissen führen kann}
+	\label{fig:bcomp_illegal}
+\end{figure}
+
+Ein solch konturiertes Beispiel ist in Abbildung \ref{fig:bcomp_illegal} auf Seite \pageref{fig:bcomp_illegal} zu sehen. Verfolgt man hier den Abgleich der Komponenten zwischen den Rändern (von einem Prozessor jeweils nach rechts und nach unten, so dass P9 der letzte Prozessor ist) und würde der Abgleich immer nur die beiden empfangenen Ränder und die eigenen Komponenten betrachten (im Fall von P9 würde man also zwei eigene Komponenten und jeweils eine fremde Komponente auf den Rändern betrachten), dann hätte das zur Folge, dass Prozessor 9 zwei Komponenten als Ergebnis ausgeben würde und nicht eine.
+
+Um diesen komplexen Fall zu erkennen, müsste jede Komponente ihre eigene Entstehungs-Geschichte speichern, also aus welchen Einzel-Komponenten und von welchen Prozessoren sie jeweils zusammengesetzt wurde. Dann könnte Prozessor 9 erkennen, dass die Komponenten von Prozessor 6 und Prozessor 8 auf Prozessor 5 verbunden wurden. Das hat aber zur Folge, dass bei jedem Randabgleich \textbf{alle} Komponenten der verbundenen Prozessoren auf gemeinsame Teile untersucht werden müssten (weil selbst Prozessor 6 kann noch nicht erkennen, dass seine Komponente in Prozessor 5 mit einer anderen verbunden wird). Bei großen Komponenten-Mengen (in unserer Messung, die später noch gezeigt wird, waren es z.B. mehr als $320000$) würde das zu einer hohen Komplexität an Such- und Vergleich-Operationen führen, selbst wenn die Komponenten-Listen sortiert und damit Logarithmisch durchsuchbar sind.
+
+\subsection{Speicheraufwand in der Erkennungsphase}
+
+Die angesprochene lineare Laufzeit der Erkennungsphase wird vor allem dadurch erkauft, das während der Laufzeit alle gesehenen Knoten im Graphen auf einem Stack gespeichert werden. Somit ist kein Backtracking notwendig und der vom Betriebssystem zur Verfügung gestellt Funktions-Stack wird nicht belastet. Das hat aber bei großen Matrizen zur Folge, dass dieser Stack sehr groß werden kann (je nachdem wie die Suche verläuft). Dazu kommt, dass große Matrizen schon so viel Speicher benötigen, damit Komponenten-Bestandteile (ID, Größe, Koordinaten) und Graphen-Farben gespeichert werden können.
+
+Das führt dazu, das dieser Teil des Algorithmus sehr Speicher-Intensiv ist. Was allerdings durch die Cluster-Verarbeitung wieder abgeschwächt werden kann. Der Algorithmus könnte auch mit Backtracking im Graphen realisiert werden, was die Laufzeit-Komplexität aber erheblich anheben würde.
+
+\subsection{Such-Aufwand im Rand-Abgleich}
+
+Beim abgleichen der Ränder zweier Komponenten muss oft auf einzelne Komponenten und gespeicherte Verbindungen zugegriffen werden, um Zusammenhänge zu erkennen (wie oben schon erläutert). Diese Zugriffe geschehen derzeit nicht per Indexierung, weshalb eine Form der Suche angewendet werden muss. Um die Laufzeit davon zu begrenzen werden die Komponenten-Listen und Listen von Verbindungen sortiert, um danach eine binäre Suche anwenden zu können. Trotzdem steigt deswegen die Komplexität dieser Phase an.
+
+Diese Komplexität kann mit komplexeren Datenstrukturen verringert werden. Ein balancierter Baum z.B. würde die Laufzeit vom sortierten Einfügen erheblich verringern (gegenüber dem jetzt verwendeten Vector). Aber dazu müsste auch ein spezieller Allokator implementiert werden, der es ermöglicht gleichzeitig - mit einem malloc - mehrere Baumelemente vor Gebrauch zu reservieren, damit nicht während der Laufzeit für jedes Baumelement einzeln Speicher alloziert werden muss. Bei großen Komponenten-Mengen würde das die Laufzeit explodieren lassen (jedes malloc hat Systemaufrufe zur Folge).
+
+Außerdem könnten die Verbindungen mit geschickter Zeiger-Logik direkt mit den Komponenten verbunden werden, was jeglichen Such-Aufwand eliminieren würde.
+
+Beides wurde wegen dem nötigen Zeitaufwand vorerst zurück gestellt.
