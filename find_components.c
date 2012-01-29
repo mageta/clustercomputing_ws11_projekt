@@ -161,6 +161,7 @@ int main(int argc, char **argv)
 	if(pdata.rank == 0) {
 		if(read_input_file(&input_matrix, argv[1])) {
 			fprintf(stderr, "\n%s\n", usage(argc, argv));
+			rc = EINVAL;
 			goto err_fileread;
 		}
 		rc = mpi_distribute_matrix(&pdata, dims, input_matrix);
@@ -413,13 +414,15 @@ static void print_result(struct component_list *list)
 	int i;
 	struct component *comp;
 
-	fprintf(stdout, "clist:\n");
+	fprintf(stderr, "clist (%d components):\n", list->components->elements);
 
 	for(i = 0; i < list->components->elements; i++) {
 		comp = (struct component *) vector_get_value(
 					list->components, i);
 
-		fprintf(stdout, "%d\n", comp->size);
+		fprintf(stdout, "coords: (%d, %d); size: %d\n",
+				comp->example_coords[0],
+				comp->example_coords[1], comp->size);
 	}
 }
 
