@@ -7,6 +7,7 @@
 #include "matrix.h"
 #include "components.h"
 
+/* composites of two components */
 struct composite {
 	unsigned int unused;
 	unsigned int merge_target;	/* N */
@@ -22,25 +23,34 @@ struct composite_alien {
 	unsigned int merge_target;	/* N */
 };
 
-int compalien_compare_a(const void *lhv, const void *rhv, size_t size);
-int compalien_p_compare_m(const void *lhv, const void *rhv, size_t size);
+/*
+ * compare-functions to sort the component-vectors,
+ * so we can search in logarithmic-time-complexity in these vectors
+ */
 
+/* search composite_alien after their alien-cid */
+int compalien_compare_a(const void *lhv, const void *rhv, size_t size);
+/* search composite_alien after their merge-target */
+int compalien_compare_m(const void *lhv, const void *rhv, size_t size);
+
+/* search composite_own after their own-cid */
 int compown_compare_o(const void *lhv, const void *rhv, size_t size);
-int compown_p_compare_m(const void *lhv, const void *rhv, size_t size);
+/* search composite_own after their merge-target */
+int compown_compare_m(const void *lhv, const void *rhv, size_t size);
 
 /**
- * find_common_components() - tries to merge all components from 
+ * find_common_components() - tries to merge all components from
  * 	@communication_compl into the own component-list @own_compl
  * @own_compl: the list of the own components
  * @communication_compl: the list of the received/alien components
  * @compare_border: the border of our own that should be used to be
  *	compared with @alien_border
  * @send_border: the border of our own that later shall be sent to the next
- *	prozessor
+ *	processor
  * @alien_border: the received/alien border that should be compared with
  *	@compare_border
  *
- * The algorithm compares @compare_border and @alien_border and searchs for
+ * The algorithm compares @compare_border and @alien_border and searches for
  * components which are connected. If it finds such components, it merges them.
  * All other components (alien-components which are not connected) are also
  * added to @own_compl.

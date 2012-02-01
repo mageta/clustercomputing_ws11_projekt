@@ -74,7 +74,10 @@ static unsigned int urand()
 int
 main(int argc, char ** argv)
 {
+	/* read from argv */
 	long int width, height;
+
+	/* please see the project-documentation for detailed explanations */
 	double filling = 0.5;
 	unsigned int failcount = 500,
 		     bulginess = 3,
