@@ -380,6 +380,7 @@ int main(int argc, char *argv[]) {
 			fprintf(stderr, "ERR in %s:%d:%s()\n", __FILE__, __LINE__, __func__);
 			goto err_out;
 		}
+		recv_components.components->elements = comm_len;
 
 		printf("rank=%i: components (%i) transfer: %i <- %i\n", rank,components->components->elements,rank,source);
 
@@ -460,7 +461,7 @@ int main(int argc, char *argv[]) {
 
 	// borders_destroy(borders);
 	component_list_destroy(components);
-	component_list_destroy(recv_components.components);
+	vector_destroy(recv_components.components);
 	matrix_destroy(working_matrix);
 	matrix_destroy(input_matrix);
 	MPI_Type_free(&mpi_matrix_type);
