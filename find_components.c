@@ -87,7 +87,6 @@ static void	print_component_list		(struct component_list *list);
 static void	print_inputmatrix		(matrix_type *matrix);
 static void	print_border			(matrix_type *border,
 						 int dimension);
-static void	print_result			(struct component_list *list);
 static void	correct_example_coordinates	(struct processor_data *pdata);
 
 int main(int argc, char **argv)
@@ -115,6 +114,7 @@ int main(int argc, char **argv)
 
 	/* define user-datatype */
 
+	/* register the custom types */
 	register_mpi_component_type();
 	register_mpi_matrix_dims();
 
@@ -130,10 +130,6 @@ int main(int argc, char **argv)
 	 * .          .
 	 * m - 1 .. n - 1 / m -1
 	 */
-
-//	rc = list_create(&pdata.component_lists,
-//			sizeof(struct component_list));
-//	debug_if(rc) goto err_output;
 
 	for(i = 0; i < COMM_DIMS; i++) {
 		dims[i] = 0;
@@ -151,6 +147,8 @@ int main(int argc, char **argv)
 
 	MPI_Cart_create(MPI_COMM_WORLD, COMM_DIMS, dims, periods, 0,
 			&pdata.topo);
+
+	/* set the coordinates of the current processor */
 	MPI_Cart_coords(pdata.topo, pdata.rank, COMM_DIMS, pdata.coords);
 	MPI_Comm_size(pdata.topo, &pdata.topo_size);
 
@@ -159,60 +157,65 @@ int main(int argc, char **argv)
 	input_matrix = NULL;
 	pdata.matrix = NULL;
 	if(pdata.rank == 0) {
+		/* root shall read the matrix from the filesystem */
 		if(read_input_file(&input_matrix, argv[1])) {
 			fprintf(stderr, "\n%s\n", usage(argc, argv));
 			rc = EINVAL;
 			goto err_fileread;
 		}
+		/* send the read matrix to the other processors */
 		rc = mpi_distribute_matrix(&pdata, dims, input_matrix);
 	} else {
+		/* all others shall only receive their private matrix */
 		rc = mpi_receive_matrix(&pdata);
 	}
 
 	debug_if(rc)
 		goto err_matrix_distrib;
 
+	/*
+	 * wait till every processors has its local copy of the matrix
+	 * we do this for performance-reasons, in tests this is much faster
+	 * than going on asynchronously.
+	 */
 	MPI_Barrier(MPI_COMM_WORLD);
 
 	endtime=MPI_Wtime();
 
 	/*
-	 * the matrix-chunk is now available in pdata.matrix
+	 * the matrix-chunk is now available in pdata.matrix,
 	 * lets find the local components
 	 */
-
 	rc = find_components(pdata.matrix, &pdata.comp_list, &pdata.borders);
 	debug_if(rc)
 		goto err_find_comp;
 
 	endtime2=MPI_Wtime();
 
-//	MPI_Barrier(MPI_COMM_WORLD);
-
 	correct_example_coordinates(&pdata);
 
-//	print_component_list(pdata.comp_list);
-
-	/* call main working function */
-
+	/*
+	 * now eveyone has its locale component-list, lets distribute and
+	 * compare these to find common components between neighbours
+	 */
 	rc = mpi_working_function(&pdata, dims);
 	debug_if(rc)
 		goto err_free_list;
 
 	endtime3=MPI_Wtime();
 
+	/* some performance-results */
 	fprintf(stderr, "%d: distribute-phase %fs, find-phsae %fs, "
 			"border-phase %fs, "
 			"whole-phase %fs\n",
 			pdata.rank, endtime - starttime, endtime2 - endtime,
 			endtime3 - endtime2, endtime3 - starttime);
-	/*
-	 * clean up
-	 */
+
+	/* clean up and error-handling */
 	rc = 0;
 err_free_list:
 	component_list_destroy(pdata.comp_list);
-//	borders_destroy(pdata.borders);
+/*	borders_destroy(pdata.borders);	*/
 err_find_comp:
 	matrix_destroy(pdata.matrix);
 err_matrix_distrib:
@@ -224,6 +227,11 @@ err_fileread:
 	if(!rc) {
 		MPI_Finalize();
 	} else {
+		/*
+		 * if we come this far and a error-code is set in rc,
+		 * we have to tell this MPI so it can abort waiting
+		 * communication-operations
+		 */
 		fprintf(stderr, "%d: failed with.. %s\n", pdata.rank,
 				strerror(rc));
 		MPI_Abort(MPI_COMM_WORLD, EXIT_FAILURE);
@@ -237,6 +245,11 @@ err_fileread:
 
 static void register_mpi_component_type()
 {
+	/*
+	 * register a MPI_struct-Type for 'struct component' from
+	 * components.h
+	 */
+
 	struct component c;
 	int count = 4;
 	int blocklens[] = {COMM_DIMS, 1, 1, 1};
@@ -268,6 +281,7 @@ static void register_mpi_component_type()
 
 static void register_mpi_matrix_dims()
 {
+	/* register a type to transfer the local matrix dimensions */
 	MPI_Type_contiguous(4, MPI_UNSIGNED, &MPI_matrix_dims);
 	MPI_Type_commit(&MPI_matrix_dims);
 }
@@ -284,6 +298,26 @@ static char * usage(int argc, char ** argv)
 	return text;
 }
 
+/**
+ * read_input_file() - reads a matrix from a file
+ * @m: a pointer to the matrix-pointer that shall contain the allocated memroy
+ * @file_name: the file to read from
+ *
+ * If the given file @file_name can be read and contains a well-formated
+ * matrix, the function will allocate a new matrix_type-object and return
+ * it through m.
+ *
+ * 'well-formated' is:
+ * m00, m01, .... , m0N
+ * m10
+ * .
+ * .
+ * mM0, mM1, .... , mMN
+ *
+ * where mIJ is a integral that is either 0 or 1.
+ *
+ * Returns %0 on success.
+ **/
 static int read_input_file(matrix_type **m, char *file_name)
 {
 	int i, j, rc;
@@ -308,6 +342,7 @@ static int read_input_file(matrix_type **m, char *file_name)
 		goto err_out;
 	}
 
+	/* read every line of the source-file */
 	while (getline(&line, &line_length, input) > 0) {
 		if(queue_enqueue(lines, &line)) {
 			fprintf(stderr, "Not enougth memory.\n");
@@ -324,6 +359,7 @@ static int read_input_file(matrix_type **m, char *file_name)
 	line = *((char **) queue_head(lines));
 	width = 0;
 
+	/* evaluate how many fields a line contains (N) */
 	while(*line) {
 		if((*line == ',') && (*(line+1) == ' '))
 			width++;
@@ -334,9 +370,8 @@ static int read_input_file(matrix_type **m, char *file_name)
 		line++;
 	}
 
+	/* evaluate how many lines the file contains (M) */
 	height = queue_size(lines);
-
-//	fprintf(stdout, "height: %d; width: %d\n", height, width);
 
 	rc = matrix_create(&matrix, height, width, sizeof(unsigned char));
 	debug_if(rc) {
@@ -346,6 +381,7 @@ static int read_input_file(matrix_type **m, char *file_name)
 	}
 	matrix_init(matrix, 0);
 
+	/* read the fields into the matrix */
 	i = 0;
 	while (queue_size(lines)) {
 		queue_dequeue(lines, &line);
@@ -396,24 +432,6 @@ static void print_component_list(struct component_list *list)
 	int i;
 	struct component *comp;
 
-	fprintf(stdout, "clist:\n");
-
-	for(i = 0; i < list->components->elements; i++) {
-		comp = (struct component *) vector_get_value(
-					list->components, i);
-
-		fprintf(stdout, "comp %d, size %d, (%d, %d)\n",
-				comp->component_id, comp->size,
-				comp->example_coords[0],
-				comp->example_coords[1]);
-	}
-}
-
-static void print_result(struct component_list *list)
-{
-	int i;
-	struct component *comp;
-
 	fprintf(stderr, "clist (%d components):\n", list->components->elements);
 
 	for(i = 0; i < list->components->elements; i++) {
@@ -460,6 +478,12 @@ static void print_border(matrix_type *border, int dimension)
 	fprintf(stdout, "%hhd\n", val);
 }
 
+/**
+ * correct_example_coordinates() - corrects the coordinates of local found
+ *				   components to match the position of the
+ *				   processor in the local matrix
+ * @pdata - the processor-data of the current processor
+ **/
 static void correct_example_coordinates(struct processor_data *pdata)
 {
 	unsigned int i;
@@ -473,6 +497,9 @@ static void correct_example_coordinates(struct processor_data *pdata)
 	}
 }
 
+/*
+ * see project-documentation
+ */
 static int mpi_distribute_matrix (struct processor_data *pdata,
 		int *topo_dims, matrix_type *input_matrix)
 {
@@ -503,6 +530,7 @@ static int mpi_distribute_matrix (struct processor_data *pdata,
 		return EPERM;
 	}
 
+	/* the width of a normal local matrix */
 	normal_n = n_per_proc;
 	/*
 	 * the last has to wait the longest time,
@@ -515,8 +543,9 @@ static int mpi_distribute_matrix (struct processor_data *pdata,
 
 	/*
 	 * prepare distribution of the dimension
+	 *	- allocate memory for the scatter-call
+	 *	- fill the memory with the data for each other node
 	 */
-
 	rc = matrix_create(&dim_matrix, topo_dims[0], topo_dims[1],
 			sizeof(struct matrix_dims));
 	debug_if(rc)
@@ -557,16 +586,13 @@ static int mpi_distribute_matrix (struct processor_data *pdata,
 		matrix_set(disp_matrix, i, j, &disp);
 	}
 
-	/*
-	 * distribution dimensions
-	 */
-
+	/* distribution */
 	MPI_Scatterv(dim_matrix->matrix, count_matrix->matrix,
 			disp_matrix->matrix, MPI_matrix_dims,
 			&dims, 1, MPI_matrix_dims, 0, pdata->topo);
 
 	/*
-	 * Prepare distribution of the matrix-chunks
+	 * Prepare the distribution of the matrix-chunks
 	 *
 	 * We can't use group-communication for this, because each chunk of the
 	 * matrix starts at a other position. (we either can't use scatterv
@@ -602,12 +628,23 @@ static int mpi_distribute_matrix (struct processor_data *pdata,
 			comm_mat_begin = matrix_get(input_matrix, i * dim_m,
 					j * normal_n);
 
+			/*
+			 * async. communication will speed up the distribution-
+			 * process.
+			 * The "synchronisation" takes place when the first
+			 * processor wants to send its components to the second.
+			 * This operation will be a blocking-type-comm and thus
+			 * can only start if the addressed process has finished
+			 * this step...
+			 */
 			MPI_Isend(comm_mat_begin, 1, (j == (topo_dims[1] - 1) ?
 					remain_dt : normal_dt), comm_rank,
 					MPI_TAG_MAT_DIST, pdata->topo,
 					&requests[rid++]);
 		}
 	}
+
+	/* copy the part of the input-matrix on which root shall work on */
 
 	/* create the space for the local matrix */
 	rc = matrix_create(&pdata->matrix, dims.m, dims.n,
@@ -616,18 +653,14 @@ static int mpi_distribute_matrix (struct processor_data *pdata,
 		goto err_create_lmatrix;
 
 	/* copy root-matrix */
-
 	for(i = 0; i < dims.m; i++)
 		for(j = 0; j < dims.n; j++)
 			matrix_set(pdata->matrix, i, j,
 					matrix_get(input_matrix, i, j));
 
 	pdata->local_mpos[0] = pdata->local_mpos[1] = 0;
-//	print_inputmatrix(pdata->matrix);
 
-	/*
-	 * clean up
-	 */
+	/* clean up and error-handling */
 	rc = 0;
 
 	MPI_Type_free(&remain_dt);
@@ -644,34 +677,37 @@ err_create_dim:
 
 static int mpi_receive_matrix (struct processor_data *pdata)
 {
+	/* only called by (!root)-processes */
+
 	int rc = 0;
 	struct matrix_dims dims;
 
+	/* receive the dimension */
 	MPI_Scatterv(NULL, NULL, NULL, MPI_matrix_dims,
 			&dims, 1, MPI_matrix_dims, 0, pdata->topo);
-
-//	fprintf(stdout, "%d: dims.m.. %d, dims.n.. %d, dims.start_i.. %d, dims.start_j.. %d\n",
-//			pdata->rank, dims.m, dims.n, dims.start_i, dims.start_j);
 
 	pdata->local_mpos[0] = dims.start_i;
 	pdata->local_mpos[1] = dims.start_j;
 
+	/* create a matrix of the received dimension */
 	rc = matrix_create(&pdata->matrix, dims.m, dims.n,
 			sizeof(unsigned char));
 	debug_if(rc)
 		goto err_out;
 
+	/* receive the local matrix */
 	MPI_Recv(pdata->matrix->matrix, matrix_size(pdata->matrix),
 			MPI_UNSIGNED_CHAR, 0, MPI_TAG_MAT_DIST,
 			pdata->topo, MPI_STATUS_IGNORE);
-
-//	print_inputmatrix(pdata->matrix);
 
 	return 0;
 err_out:
 	return rc;
 }
 
+/*
+ * see project-documentation
+ */
 static int mpi_working_function(struct processor_data *pdata, int *dims)
 {
 	int rc, last_proc = 1;
@@ -684,25 +720,30 @@ static int mpi_working_function(struct processor_data *pdata, int *dims)
 	matrix_type *communication_border, *send_border, *compare_border;
 	struct component_list communication_list = { .components = NULL };
 
+	/*
+	 * this is in the current version not of much use, as we only work
+	 * with one dimension, which also only grow into n-direction
+	 * (m is alway 0 - please read the remarks in the documentation)
+	 */
 	if(target_dimension == 0) { /* bottom border has to be sent */
+		/*
+		 * this is maybe a little strange, but because the border has
+		 * only one dimension, there is no need for any kind of
+		 * displacement
+		 */
 		MPI_Type_contiguous(pdata->matrix->n, MPI_UNSIGNED,
 				&border_type);
 
-		/* the own border to send to the neighbour */
+		/* the own border to be send to the neighbour */
 		send_border = (matrix_type *) vector_get_value(
 				pdata->borders, BORDER_BOTTOM);
-		/* the own border to compare with the received border */
+		/* the own border to be compared with the received border */
 		compare_border = (matrix_type *) vector_get_value(
 				pdata->borders, BORDER_TOP);
 
 		rc = matrix_create(&communication_border, 1, pdata->matrix->n,
 				send_border->element_size);
 	} else { /* right border has to be sent */
-		/*
-		 * this is maybe a little strange, but becuase the border has
-		 * only one dimension, there is no need for any kind of
-		 * displacement
-		 */
 		MPI_Type_contiguous(pdata->matrix->m, MPI_UNSIGNED,
 				&border_type);
 
@@ -721,6 +762,7 @@ static int mpi_working_function(struct processor_data *pdata, int *dims)
 
 	/*
 	 * try to recive something from the left or upper node
+	 * (regarding the dimension in which we work)
 	 */
 
 	comm_coords[target_dimension % COMM_DIMS] =
@@ -728,6 +770,7 @@ static int mpi_working_function(struct processor_data *pdata, int *dims)
 	comm_coords[(target_dimension + 1) % COMM_DIMS] =
 		pdata->coords[(target_dimension + 1) % COMM_DIMS];
 
+	/* only if there is a left/upper node */
 	if(comm_coords[target_dimension % COMM_DIMS] >= 0) {
 		/* in case we are _not_ the first node */
 
@@ -741,7 +784,7 @@ static int mpi_working_function(struct processor_data *pdata, int *dims)
 
 		comm_len = (comm_len > 0 ? comm_len : 0);
 
-		/* allocate enougth memory to save to components */
+		/* allocate enough memory to save to components */
 		rc = vector_create(&communication_list.components,
 				(comm_len > 0 ? comm_len : 1),
 				sizeof(struct component));
@@ -756,7 +799,7 @@ static int mpi_working_function(struct processor_data *pdata, int *dims)
 				comm_len, MPI_component_type, comm_rank,
 				MPI_TAG_COMLIST, pdata->topo, &status);
 
-		/* set the count of wirtten elements in the vector */
+		/* set the count of written elements in the vector */
 		communication_list.components->elements = comm_len;
 
 		/* receive the border */
@@ -771,6 +814,7 @@ static int mpi_working_function(struct processor_data *pdata, int *dims)
 //		print_border(communication_border, target_dimension);
 
 		if(comm_len) {
+			/* find common components 'border_compare.[ch]' */
 			rc = find_common_components(pdata->comp_list,
 					&communication_list, compare_border,
 					send_border, communication_border);
@@ -780,7 +824,7 @@ static int mpi_working_function(struct processor_data *pdata, int *dims)
 	}
 
 	/*
-	 * try to send own component_lists to the right or bottom node
+	 * try to send the own component_lists to the right or bottom node
 	 */
 
 	comm_coords[target_dimension % COMM_DIMS] =
@@ -788,6 +832,7 @@ static int mpi_working_function(struct processor_data *pdata, int *dims)
 	comm_coords[(target_dimension + 1) % COMM_DIMS] =
 		pdata->coords[(target_dimension + 1) % COMM_DIMS];
 
+	/* only if there is as valid right/bottom node */
 	if(comm_coords[target_dimension % COMM_DIMS] <
 			dims[target_dimension % COMM_DIMS]) {
 		/* in case we are _not_ the last node */
@@ -814,9 +859,9 @@ static int mpi_working_function(struct processor_data *pdata, int *dims)
 //	print_border(send_border, 1);
 
 	if(last_proc)
-		print_result(pdata->comp_list);
+		print_component_list(pdata->comp_list);
 
-	/* cleanup */
+	/* cleanup and error-handling */
 	rc = 0;
 err_find_comcomp:
 err_compvector_create:

@@ -1,6 +1,6 @@
 \subsection{Matrix-Verteilung}
 
-Um die Matrix vom Root-Prozess an die anderen Prozesse im Cluster zu verteilen, werden im wesentlichen 2 MPI-Aufrufe genutzt zu finden. Die Implementierung ist in der folgenden Datei zu finden:
+Um die Matrix vom Root-Prozess an die anderen Prozesse im Cluster zu verteilen, werden im wesentlichen 2 MPI-Aufrufe genutzt. Die Implementierung ist in der folgenden Datei zu finden:
 
 \begin{lstlisting}[language=C, aboveskip=\baselineskip, basicstyle=\footnotesize\ttfamily, lineskip=0pt]
 find_components.c:
@@ -32,11 +32,11 @@ helper/{matrixgraph.c, matrixgraph.h}
 	\label{fig:matrix_graph}
 \end{figure}
 
-Im überführten Graphen befinden sich dann Knoten mit dem Wert 0 und 1 - für weiß und schwarz. Auf diesen Graphen wird wiefolgt eine Tiefensuche angewendet:
+Im überführten Graphen befinden sich dann Knoten mit dem Wert 0 und 1 - für weiß und schwarz. Auf diesen Graphen wird wie folgt eine Tiefensuche angewendet:
 
 Jeder Knoten erhält eine Farbe (nicht zu verwechseln mit der Farbe der Komponenten; zu Anfang ist jeder Knoten weiß). Danach wird zunächst ein Knoten auf einen Stack gepusht. Mit dieser Push-Operation wird der Knoten außerdem grau gefärbt. Dadurch kann erkannt werden, ob ein Knoten schon auf dem Stack liegt (ohne den Stack zu durchsuchen). Danach läuft der Algorithmus so lange, bis der Stack keine Knoten mehr enthält.
 
-Jede Runde wird ein Knoten vom Stack geholt und expandiert - alle verbundenen Knoten, die noch weiß sind, werden auf den Stack gepusht und es wird untersucht, ob die Knoten den Wert 1 enthalten (also schwarze Pixel in der Matrix sind). Sollte ein Knoten mit Wert 1 vorhanden sein, der noch keiner Komponente zugeordnet ist (die Knoten enthalten neben dem Wert auch die Komponenten-ID), wird eine neue Komponente angelegt und dem Knoten zugeordnet. Außerdem wird eine rekursive Tiefen-Suche gestartet, die das Ziel hat, die neue Komponente zu vervollständigen (\verb+complete_component()+). Als letztes wird der Knoten, der vom Stack geholt wurde, schwarz gefärbt und aus dem Graphen entfernt, somit wird er nie wieder betrachtet. Ein Beispiel für eine solche Expandierung ist in Abbildung \ref{fig:node_expand} auf Seite \pageref{fig:node_expand} zu sehen.
+Jede Runde wird ein Knoten vom Stack geholt und expandiert - alle verbundenen Knoten, die noch weiß sind, werden auf den Stack gepusht und es wird untersucht, ob die Knoten den Wert 1 enthalten (also schwarze Pixel in der Matrix sind). Sollte ein Knoten mit Wert 1 vorhanden sein, der noch keiner Komponente zugeordnet ist (die Knoten enthalten neben dem Wert auch die Komponenten-ID), wird eine neue Komponente angelegt und dem Knoten zugeordnet. Außerdem wird eine weitere Tiefen-Suche gestartet, die das Ziel hat, die neue Komponente zu vervollständigen (\verb+complete_component()+). Als letztes wird der Knoten, der vom Stack geholt wurde, schwarz gefärbt und aus dem Graphen entfernt, somit wird er nie wieder betrachtet. Ein Beispiel für eine solche Expandierung ist in Abbildung \ref{fig:node_expand} auf Seite \pageref{fig:node_expand} zu sehen.
 
 \begin{figure}[tbhp]
 	\centering
@@ -71,7 +71,7 @@ Der Vorgänger überträgt danach noch den Rand, der an dem des aktuellen Knoten
 
 \subsubsection{Abgleich}
 
-Damit die Komponenten erkannt werden, die durch die Teilung der Matrix separiert wurden, wird vom jeweiligen Empfänger die Funktion \verb+find_common_components()+ benutzt. Diese Funktion vergleicht den empfangenen Rand des Vorgängers (ab hier: \textit{links}) mit dem Rand der eigenen Matrix (ab hier: \textit{recht}), der an diesem anliegt. Dabei geht der Algorithmus den linken Rand von oben nach unten durch und vergleicht das aktuelle Feld mit den drei angrenzenden Feldern im rechten Rand.
+Damit die Komponenten erkannt werden, die durch die Teilung der Matrix separiert wurden, wird vom jeweiligen Empfänger die Funktion \verb+find_common_components()+ benutzt. Diese Funktion vergleicht den empfangenen Rand des Vorgängers (ab hier: \textit{links}) mit dem Rand der eigenen Matrix (ab hier: \textit{rechts}), der an diesem anliegt. Dabei geht der Algorithmus den linken Rand von oben nach unten durch und vergleicht das aktuelle Feld mit den drei angrenzenden Feldern im rechten Rand.
 
 Bei diesem Vergleich können folgende Fälle auftreten (jeweils, wenn links und rechts eine Komponente gefunden wird):
 \begin{itemize}

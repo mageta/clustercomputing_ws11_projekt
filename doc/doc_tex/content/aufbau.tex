@@ -8,7 +8,7 @@ Das Programm ist in 3 wesentliche Schritte eingeteilt:
 
 \subsection{Einlesen, Verteilen}
 
-Nach dem Programmstart wird die Matrix vom Root-Prozess des Dateisystems eingelesen. Dafür wird die Datei als Parameter beim Programmaufruf angegeben. Anschließend teilt der Root-Prozess die Matrix in möglichst gleich große Teile und verschickt diese an die anderen Prozesse im Cluster. In der aktuellen Programmversion teilt der Root-Prozess die Matrix immer in Streifen. Falls dabei die Anzahl der Matrix-Spalten nicht durch die Anzahl der Prozessoren teilbar ist, wird der Rest dem letzten Prozess zugeteilt (siehe Abb. \ref{fig:matrix_zerteilung} auf Seite \pageref{fig:matrix_zerteilung}).
+Nach dem Programmstart wird die Matrix vom Dateisystem des Root-Prozesses eingelesen. Dafür wird die Datei als Parameter beim Programmaufruf angegeben. Anschließend teilt der Root-Prozess die Matrix in möglichst gleich große Teile und verschickt diese an die anderen Prozesse im Cluster. In der aktuellen Programmversion teilt der Root-Prozess die Matrix immer in Streifen. Falls dabei die Anzahl der Matrix-Spalten nicht durch die Anzahl der Prozessoren teilbar ist, wird der Rest dem letzten Prozess zugeteilt (siehe Abb. \ref{fig:matrix_zerteilung} auf Seite \pageref{fig:matrix_zerteilung}).
 
 \begin{figure}[tbhp]
 	\centering

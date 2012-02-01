@@ -182,6 +182,12 @@ static void __destroy_composite_vectors(
 	vector_destroy(idx_mergedown_m);
 }
 
+/*
+ * inserts a compoiste of a alien and a own component (alien should be added to 
+ * the own component).
+ * With the first insert it gets sorted after its alien_cid, with the second
+ * after its merge_target.
+ */
 static int __insert_compalien(vector_type *merged_alien,
 		vector_type *idx_mergedalien_m, unsigned int alien_cid,
 		unsigned int merge_target)
@@ -205,6 +211,12 @@ static int __insert_compalien(vector_type *merged_alien,
 	return 0;
 }
 
+
+/*
+ * inserts a compoiste of two of our own components.
+ * With the first insert it gets sorted after its own_cid, with the second
+ * after its merge_target.
+ */
 static int __insert_compown(vector_type *merged_own,
 		vector_type *idx_mergedown_m, unsigned int own_cid,
 		unsigned int merge_target)
